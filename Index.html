@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aplikasi Pemilihan Kepala Desa Segaran Tahun 2026</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- HTML5 QR Code Scanner -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- jsPDF & html2canvas for PDF Download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            segaran: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            },
+            admin: {
+              600: '#1e293b',
+              700: '#0f172a',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Inconsolata:wght@500;700&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Print styles for Receipt */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      .printable-area, .printable-area * {
+        visibility: visible;
+      }
+      .printable-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      .no-print {
+        display: none !important;
+      }
+      @page {
+        margin: 1cm;
+      }
+    }
+
+    .thermal-receipt {
+      font-family: 'Inconsolata', monospace;
+    }
+
+    .candidate-card {
+      transition: all 0.25s ease-in-out;
+    }
+    
+    .candidate-card.selected {
+      border-color: #2563eb;
+      box-shadow: 0 0 25px rgba(22, 163, 74, 0.35);
+      transform: translateY(-4px);
+    }
+
+    /* Force Landscape Notification */
+    #landscape-warning {
+      display: none;
+    }
+    
+    /* Tampilan responsif: mendukung layar tegak maupun mendatar. */
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      overflow-x: hidden;
+    }
+    #app-wrapper, main {
+      width: 100%;
+      min-width: 0;
+    }
+    #qr-reader, #qr-reader video {
+      max-width: 100% !important;
+    }
+    #qr-reader video {
+      object-fit: cover;
+    }
+    @media (max-width: 640px) {
+      header .max-w-7xl {
+        align-items: flex-start;
+      }
+      #candidates-grid {
+        flex-wrap: wrap;
+        overflow-x: visible;
+      }
+      .candidate-card {
+        width: min(100%, 340px);
+      }
+      #qr-reader__scan_region, #qr-reader__dashboard {
+        max-width: 100%;
+      }
+    }
+  
+    /* Kamera harus dimulai melalui klik pengguna agar izin browser dapat diminta. */
+    #reader-container { width: 100%; max-width: 480px; margin: 0 auto; min-height: 220px; }
+    #camera-status { max-width: 480px; margin: .5rem auto 0; }
+    #qr-reader { width: 100%; }
+    #qr-reader video { width: 100% !important; max-height: 360px !important; height: auto !important; object-fit: cover; }
+    @media (max-width: 640px) {
+      header h1 { font-size: 1rem !important; }
+      header p { font-size: .7rem !important; }
+      #reader-container { width: min(100%, 380px); min-height: 190px; }
+      #view-home { padding-top: .25rem !important; }
+    }
+
+
+    /* Tampilan surat suara mengikuti referensi: hanya kartu calon dan tombol pilihan. */
+    #view-voting { padding-top: .25rem !important; }
+    #view-voting > div:first-child { display: none !important; }
+    #candidates-grid {
+      display: flex !important;
+      flex-direction: row !important;
+      flex-wrap: nowrap !important;
+      align-items: stretch;
+      justify-content: center;
+      gap: clamp(14px, 2.8vw, 38px) !important;
+      width: 100%;
+      max-width: 1240px !important;
+      margin: 0 auto;
+      padding: 0 0 1rem;
+    }
+    #candidates-grid .candidate-card {
+      flex: 1 1 0;
+      width: 0;
+      max-width: 380px;
+      min-width: 0;
+      height: clamp(430px, 71vh, 580px);
+      padding: clamp(14px, 2vw, 28px) !important;
+      border-width: 4px !important;
+      border-color: #e2e8f0;
+      border-radius: 28px !important;
+      background: #fff;
+      box-shadow: 0 3px 6px rgba(15,23,42,.12);
+      justify-content: flex-start !important;
+      gap: 0;
+    }
+    #candidates-grid .candidate-card.selected {
+      border-color: #2563eb !important;
+      background: #f0fdf4;
+      box-shadow: 0 0 0 2px rgba(22,163,74,.12), 0 5px 12px rgba(15,23,42,.12);
+      transform: translateY(-2px);
+    }
+    #candidates-grid .candidate-photo {
+      width: 100%;
+      height: clamp(245px, 45vh, 360px);
+      flex: 0 0 auto;
+      overflow: hidden;
+      border: 2px solid #e2e8f0;
+      border-radius: 18px;
+      background: #f1f5f9;
+    }
+    #candidates-grid .candidate-photo img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+    }
+    #candidates-grid .candidate-number {
+      margin-top: 18px;
+      font-size: 27px;
+      line-height: 1.2;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    #candidates-grid .candidate-name {
+      margin-top: 20px;
+      font-size: clamp(17px, 2vw, 27px);
+      line-height: 1.25;
+      font-weight: 800;
+      color: #0f172a;
+      overflow-wrap: anywhere;
+    }
+    #btn-submit-vote { margin-top: .25rem; }
+    @media (max-width: 700px) {
+      #view-voting { padding-left: .25rem !important; padding-right: .25rem !important; }
+      #candidates-grid { gap: 8px !important; }
+      #candidates-grid .candidate-card {
+        padding: 8px !important;
+        height: clamp(280px, 58vh, 430px);
+        border-radius: 16px !important;
+        border-width: 2px !important;
+      }
+      #candidates-grid .candidate-photo {
+        height: clamp(150px, 34vh, 240px);
+        border-radius: 10px;
+      }
+      #candidates-grid .candidate-number { margin-top: 10px; font-size: 18px; }
+      #candidates-grid .candidate-name { margin-top: 10px; font-size: clamp(11px, 2.3vw, 16px); }
+      #btn-submit-vote { font-size: 1rem !important; padding: .8rem 1.25rem !important; }
+    }
+
+</style>
+</head>
+<body class="h-full text-slate-800 antialiased flex flex-col min-h-screen">
+
+  <div id="landscape-warning" style="display:none;">
+    <i class="fa-solid fa-mobile-screen-button text-6xl mb-4 animate-bounce" style="transform: rotate(-90deg);"></i>
+    <h1 class="text-2xl font-black mb-2">Mohon Putar Perangkat Anda</h1>
+    <p class="text-slate-300">Aplikasi ini membutuhkan mode Landscape (Mendatar) untuk pengalaman terbaik.</p>
+  </div>
+
+  <div id="app-wrapper" class="flex-grow flex flex-col min-h-screen">
+
+  <header class="bg-gradient-to-r from-blue-800 via-segaran-700 to-blue-900 text-white shadow-lg sticky top-0 z-40 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="app.navTo('home')">
+        <div class="bg-white/10 p-2 rounded-xl backdrop-blur-sm border border-white/20">
+          <i class="fa-solid me-1 fa-box-archive text-blue-300 text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-black tracking-wide leading-tight">PILKADES SEGARAN 2026 (LATIHAN)</h1>
+          <p class="text-xs text-blue-100/80 font-medium">Pemerintah Desa Segaran - Sistem Pemilihan Digital</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <div class="bg-blue-950/40 backdrop-blur-md px-3 py-1.5 rounded-lg border border-blue-400/30 flex items-center space-x-2">
+          <i class="fa-solid fa-users text-blue-300 text-sm"></i>
+          <span class="text-xs text-blue-100">Pemilih Sudah Memilih:</span>
+          <span id="global-voted-count" class="font-extrabold text-sm text-yellow-300 bg-yellow-950/60 px-2 py-0.5 rounded">0 Orang</span>
+        </div>
+
+        <button onclick="app.toggleAdminLogin()" class="bg-white/10 hover:bg-white/20 active:bg-white/30 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition border border-white/20">
+          <i class="fa-solid fa-user-shield text-amber-300"></i>
+          <span id="nav-admin-text">ADMIN</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow flex flex-col justify-center max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+    <section id="view-home" class="view-section space-y-6 text-center py-6">
+      <div class="max-w-5xl mx-auto bg-white rounded-3xl shadow-xl p-4 sm:p-6 border border-slate-100">
+
+        
+        <div class="mt-0 max-w-2xl mx-auto space-y-4">
+          <button id="btn-start-camera" type="button" onclick="app.startScanner()" class="w-full max-w-xl mx-auto bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-3 px-5 rounded-xl shadow-md transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-camera"></i><span>AKTIFKAN KAMERA / SCAN QR</span>
+          </button>
+          <p id="camera-status" role="status" aria-live="polite" class="text-xs text-slate-600">Tekan tombol di atas untuk mengaktifkan kamera dan izinkan akses kamera pada browser.</p>
+          <div id="reader-container" class="hidden bg-slate-900 rounded-2xl overflow-hidden border-2 border-blue-500 shadow-lg relative w-full">
+            <div id="qr-reader" class="w-full"></div>
+            <button onclick="app.stopScanner()" class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg text-xs font-bold z-10">
+              <i class="fa-solid fa-xmark"></i> Tutup Kamera
+            </button>
+          </div>
+          
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-4 space-y-1">
+            <p class="text-xs font-bold text-slate-500 uppercase">Atau Gunakan Simulasi (Latihan)</p>
+            <select id="quick-voter-select" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"></select>
+            <button onclick="app.processQuickVoter()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg transition text-sm">
+              Proses Pemilih
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-voting" class="view-section hidden space-y-6 text-center py-4">
+      <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="text-left">
+          <h2 class="text-xl font-black text-slate-900 uppercase">Surat Suara Digital</h2>
+          <p class="text-sm font-semibold text-blue-700">Silakan pilih calon kepala desa dengan menekan foto/kartu.</p>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-right">
+          <p class="text-xs font-bold text-slate-500 uppercase">Pemilih Aktif:</p>
+          <p id="voting-voter-name" class="font-extrabold text-slate-900">NAMA PEMILIH</p>
+          <p id="voting-voter-info" class="text-xs font-semibold text-slate-600">NIK: - | TPS -</p>
+        </div>
+      </div>
+
+      <div id="candidates-grid" class="flex flex-row flex-wrap justify-center gap-4 sm:gap-8 w-full max-w-6xl mx-auto pb-4">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="text-center pt-4">
+        <button id="btn-submit-vote" onclick="app.initiateConfirmation()" class="bg-blue-600 hover:bg-blue-700 text-white text-xl font-extrabold px-10 py-4 rounded-2xl shadow-xl shadow-blue-600/30 flex items-center justify-center space-x-3 mx-auto transition active:scale-95">
+          <i class="fa-solid fa-circle-check text-2xl"></i>
+          <span>PILIH KANDIDAT INI</span>
+        </button>
+      </div>
+    </section>
+
+    <section id="view-receipt" class="view-section hidden max-w-md mx-auto py-4">
+      <div id="receipt-content-container" class="bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 printable-area space-y-4">
+        <div id="receipt-paper" class="thermal-receipt border-2 border-dashed border-slate-300 p-6 rounded-2xl bg-slate-50 text-slate-800 text-center space-y-3">
+          <div class="border-b border-slate-300 pb-3">
+            <h3 class="font-extrabold text-lg tracking-wider">PEMILIHAN KEPALA DESA</h3>
+            <h4 class="font-bold text-base">SEGARAN</h4>
+            <p class="text-xs text-slate-600 font-bold">TAHUN 2026</p>
+          </div>
+
+          <div class="py-1">
+            <p class="text-xs uppercase tracking-widest font-bold text-slate-500">BUKTI PILIHAN PEMILIH</p>
+            <div id="receipt-qr" class="flex justify-center my-3 bg-white p-2 rounded-lg inline-block border border-slate-200"></div>
+            <p id="receipt-trx-id" class="text-xs font-mono font-bold text-slate-600">TRX-SEGARAN-2026-XXXXXX</p>
+          </div>
+
+          <div class="border-t border-b border-slate-300 py-3 text-left space-y-2">
+            <div>
+              <p class="text-[10px] text-slate-500 uppercase font-bold">PILIHAN ANDA:</p>
+              <p id="receipt-candidate-name" class="font-black text-base text-slate-900 leading-tight">NAMA CALON</p>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-500 uppercase font-bold">STATUS PILIHAN:</p>
+              <p id="receipt-status-badge" class="inline-block px-3 py-1 rounded font-black text-sm text-white bg-blue-600">SAH</p>
+            </div>
+            <div id="receipt-note-container" class="hidden text-xs text-red-600 font-bold italic pt-1">
+              <p id="receipt-note-text">Pilihan lebih dari satu calon.</p>
+            </div>
+          </div>
+
+          <div class="pt-2 text-xs text-slate-500 space-y-1">
+            <p class="font-semibold">Terima kasih telah menggunakan hak pilih Anda.</p>
+            <p id="receipt-timestamp" class="text-[10px]">2026-09-19 10:15:30</p>
+          </div>
+        </div>
+
+        <div class="no-print space-y-3 pt-2">
+          <div class="flex gap-2">
+             <button onclick="window.print()" class="flex-1 bg-slate-900 hover:bg-black text-white font-bold py-3.5 px-4 rounded-xl shadow flex items-center justify-center space-x-2 transition text-sm">
+              <i class="fa-solid fa-print"></i>
+              <span>CETAK</span>
+            </button>
+            <button onclick="app.downloadReceiptPDF()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl shadow flex items-center justify-center space-x-2 transition text-sm">
+              <i class="fa-solid fa-download"></i>
+              <span>UNDUH PDF</span>
+            </button>
+          </div>
+          
+          <button onclick="app.resetToHome()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl shadow flex items-center justify-center space-x-2 transition">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i>
+            <span>KEMBALI KE SCAN PEMILIH</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-admin" class="view-section hidden space-y-6">
+      <div class="bg-slate-900 text-white rounded-2xl p-4 sm:p-6 shadow-xl flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center space-x-3">
+          <div class="bg-amber-500 p-2.5 rounded-xl text-slate-950 font-black">
+            <i class="fa-solid fa-shield-halved text-2xl"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-black">DASHBOARD ADMINISTRATOR</h2>
+            <p class="text-xs text-slate-400">Pengelolaan Pilkades Segaran Tahun 2026</p>
+          </div>
+        </div>
+        <button onclick="app.logoutAdmin()" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span>KELUAR</span>
+        </button>
+      </div>
+
+      <div class="flex overflow-x-auto gap-2 border-b border-slate-200 pb-2 no-scrollbar">
+        <button onclick="app.switchAdminTab('results')" id="tab-btn-results" class="admin-tab-btn active bg-blue-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl whitespace-nowrap transition flex items-center space-x-2">
+          <i class="fa-solid fa-chart-pie"></i><span>HASIL PEMILIHAN</span>
+        </button>
+        <button onclick="app.switchAdminTab('candidates')" id="tab-btn-candidates" class="admin-tab-btn bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-200 whitespace-nowrap transition flex items-center space-x-2">
+          <i class="fa-solid fa-user-pen"></i><span>DATA CALON</span>
+        </button>
+        <button onclick="app.switchAdminTab('voters')" id="tab-btn-voters" class="admin-tab-btn bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-200 whitespace-nowrap transition flex items-center space-x-2">
+          <i class="fa-solid fa-address-card"></i><span>DATA PEMILIH</span>
+        </button>
+        <button onclick="app.switchAdminTab('invitations')" id="tab-btn-invitations" class="admin-tab-btn bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-200 whitespace-nowrap transition flex items-center space-x-2">
+          <i class="fa-solid fa-envelope-open-text"></i><span>CETAK SURAT UNDANGAN</span>
+        </button>
+        <button onclick="app.switchAdminTab('qrcodes')" id="tab-btn-qrcodes" class="admin-tab-btn bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-200 whitespace-nowrap transition flex items-center space-x-2">
+          <i class="fa-solid fa-qrcode"></i><span>DATA QR/BARCODE</span>
+        </button>
+        <button onclick="app.switchAdminTab('reports')" id="tab-btn-reports" class="admin-tab-btn bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-200 whitespace-nowrap transition flex items-center space-x-2">
+          <i class="fa-solid fa-file-invoice"></i><span>LAPORAN</span>
+        </button>
+        <button onclick="app.switchAdminTab('settings')" id="tab-btn-settings" class="admin-tab-btn bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-200 whitespace-nowrap transition flex items-center space-x-2">
+          <i class="fa-solid fa-sliders"></i><span>PENGATURAN</span>
+        </button>
+      </div>
+
+      <!-- ADMIN TAB 1: HASIL PEMILIHAN -->
+      <div id="admin-tab-results" class="admin-tab-content space-y-6">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+            <p class="text-[11px] font-bold text-slate-500 uppercase">Pemilih Terdaftar</p>
+            <p id="stat-registered" class="text-2xl font-black text-slate-800 mt-1">0</p>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-blue-200 shadow-sm text-center bg-blue-50/50">
+            <p class="text-[11px] font-bold text-blue-700 uppercase">Sudah Memilih</p>
+            <p id="stat-voted" class="text-2xl font-black text-blue-700 mt-1">0</p>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+            <p class="text-[11px] font-bold text-slate-500 uppercase">Belum Memilih</p>
+            <p id="stat-unvoted" class="text-2xl font-black text-slate-800 mt-1">0</p>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-blue-200 shadow-sm text-center bg-blue-50/50">
+            <p class="text-[11px] font-bold text-blue-700 uppercase">Total Suara</p>
+            <p id="stat-total-votes" class="text-2xl font-black text-blue-700 mt-1">0</p>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-blue-200 shadow-sm text-center">
+            <p class="text-[11px] font-bold text-blue-800 uppercase">Suara Sah</p>
+            <p id="stat-valid-votes" class="text-2xl font-black text-blue-800 mt-1">0</p>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-red-200 shadow-sm text-center bg-red-50/50">
+            <p class="text-[11px] font-bold text-red-700 uppercase">Suara Tidak Sah</p>
+            <p id="stat-invalid-votes" class="text-2xl font-black text-red-700 mt-1">0</p>
+          </div>
+        </div>
+
+        <div id="admin-results-candidates" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <h3 class="font-extrabold text-slate-900 text-lg flex items-center">
+            <i class="fa-solid fa-chart-column me-2 text-blue-600"></i> Diagram Perolehan Suara
+          </h3>
+          <div class="h-64 sm:h-80 relative w-full flex justify-center">
+            <canvas id="resultsChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADMIN TAB 2: DATA CALON -->
+      <div id="admin-tab-candidates" class="admin-tab-content hidden space-y-6">
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-800 flex items-start space-x-3">
+          <i class="fa-solid fa-triangle-exclamation text-amber-600 text-base mt-0.5"></i>
+          <div>
+            <p class="font-bold">Informasi Penting:</p>
+            <p>Anda dapat menambah, mengedit, atau menghapus calon. Perubahan pada nama atau foto tidak akan merusak riwayat suara sebelumnya jika ID tetap. Hati-hati saat menghapus calon yang sudah memiliki suara.</p>
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+             <button onclick="app.addCandidate()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2 rounded-lg flex items-center space-x-2 transition">
+              <i class="fa-solid fa-plus"></i><span>Tambah Calon Baru</span>
+            </button>
+        </div>
+
+        <div id="admin-candidate-editor-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        </div>
+      </div>
+
+      <!-- ADMIN TAB 3: DATA PEMILIH -->
+      <div id="admin-tab-voters" class="admin-tab-content hidden space-y-4">
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-3 justify-between items-center">
+          <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <input type="text" id="voter-search-input" onkeyup="app.filterVotersTable()" placeholder="Cari Nama, NIK, QR, TPS..." class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs w-full sm:w-64 focus:ring-2 focus:ring-blue-500 outline-none">
+            <select id="voter-status-filter" onchange="app.filterVotersTable()" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 outline-none">
+              <option value="ALL">Semua Status</option>
+              <option value="VOTED">Sudah Memilih</option>
+              <option value="NOT_VOTED">Belum Memilih</option>
+            </select>
+          </div>
+          <button onclick="app.openAddVoterModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center space-x-1.5 transition">
+            <i class="fa-solid fa-user-plus"></i><span>Tambah Pemilih</span>
+          </button>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-600">
+            <thead class="bg-slate-100 uppercase text-slate-700 font-extrabold border-b border-slate-200">
+              <tr>
+                <th class="p-3">No</th>
+                <th class="p-3">ID Pemilih</th>
+                <th class="p-3">Nama</th>
+                <th class="p-3">NIK</th>
+                <th class="p-3">TPS</th>
+                <th class="p-3">Kode QR</th>
+                <th class="p-3">Status</th>
+                <th class="p-3">Waktu Memilih</th>
+              </tr>
+            </thead>
+            <tbody id="voters-table-body" class="divide-y divide-slate-100">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ADMIN TAB 4: CETAK SURAT UNDANGAN -->
+      <div id="admin-tab-invitations" class="admin-tab-content hidden space-y-6">
+        <div class="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm flex flex-wrap justify-between items-center gap-4">
+          <div>
+            <h3 class="font-extrabold text-slate-900 text-base">Cetak Surat Undangan Pemilih ber-QR Code</h3>
+            <p class="text-xs text-slate-500">Pilih TPS untuk mencetak undangan secara massal</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <select id="invitation-tps-select" onchange="app.renderInvitationsPreview()" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2.5 text-xs font-bold text-slate-700 outline-none">
+              <option value="ALL">Semua TPS</option>
+              <option value="TPS 1">TPS 1</option>
+              <option value="TPS 2">TPS 2</option>
+              <option value="TPS 3">TPS 3</option>
+              <option value="TPS 4">TPS 4</option>
+            </select>
+            <button onclick="app.downloadAllInvitationsPDF()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg flex items-center space-x-2 transition shadow-sm">
+              <i class="fa-solid fa-file-pdf"></i><span class="hidden sm:inline">UNDUH SEMUA PDF</span>
+            </button>
+            <button onclick="app.printInvitations()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg flex items-center space-x-2 transition shadow-sm">
+              <i class="fa-solid fa-print"></i><span class="hidden sm:inline">CETAK UNDANGAN</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="invitations-preview-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Dynamic rendering of invitation cards -->
+        </div>
+      </div>
+
+      <!-- ADMIN TAB 5: DATA QR / BARCODE -->
+      <div id="admin-tab-qrcodes" class="admin-tab-content hidden space-y-6">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div class="bg-white p-4 rounded-xl border border-slate-200 text-center">
+            <p class="text-xs font-bold text-slate-500 uppercase">Total QR Terdaftar</p>
+            <p id="qr-stat-total" class="text-2xl font-black text-slate-800 mt-1">0</p>
+          </div>
+          <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 text-center">
+            <p class="text-xs font-bold text-blue-700 uppercase">QR Sudah Digunakan</p>
+            <p id="qr-stat-used" class="text-2xl font-black text-blue-700 mt-1">0</p>
+          </div>
+          <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 text-center">
+            <p class="text-xs font-bold text-blue-700 uppercase">QR Belum Digunakan</p>
+            <p id="qr-stat-unused" class="text-2xl font-black text-blue-700 mt-1">0</p>
+          </div>
+          <div class="bg-amber-50 p-4 rounded-xl border border-amber-200 text-center">
+            <p class="text-xs font-bold text-amber-700 uppercase">QR Tidak Valid / Ditolak</p>
+            <p id="qr-stat-invalid" class="text-2xl font-black text-amber-700 mt-1">0</p>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+          <h4 class="font-bold text-xs uppercase text-slate-500">Pencarian & Verifikasi Kode QR</h4>
+          <input type="text" id="qr-lookup-input" onkeyup="app.lookupQR()" placeholder="Masukkan / Scan Kode QR..." class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-sm font-mono font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500">
+          <div id="qr-lookup-result" class="p-4 rounded-lg bg-slate-100 text-xs hidden"></div>
+        </div>
+      </div>
+
+      <!-- ADMIN TAB 6: LAPORAN -->
+      <div id="admin-tab-reports" class="admin-tab-content hidden space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+          <div class="flex justify-between items-center border-b border-slate-200 pb-4">
+            <div>
+              <h3 class="font-extrabold text-lg text-slate-900">REKAPITULASI HASIL LAPORAN PEMILIHAN</h3>
+              <p class="text-xs text-slate-500">Panitia Pemilihan Kepala Desa Segaran Tahun 2026</p>
+            </div>
+            <div class="flex space-x-2">
+              <button onclick="window.print()" class="bg-slate-900 hover:bg-black text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center space-x-1.5 transition">
+                <i class="fa-solid fa-print"></i><span>CETAK LAPORAN</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-2 overflow-x-auto">
+            <h4 class="font-bold text-sm text-slate-700 uppercase">Rekapitulasi Per TPS</h4>
+            <table class="w-full text-left text-xs text-slate-600 border border-slate-200 rounded-lg overflow-hidden whitespace-nowrap">
+              <thead id="tps-report-thead" class="bg-slate-100 uppercase text-slate-700 font-extrabold text-[10px]">
+              </thead>
+              <tbody id="tps-report-tbody" class="divide-y divide-slate-100">
+              </tbody>
+              <tfoot id="tps-report-tfoot" class="bg-slate-50 font-black border-t-2 border-slate-300">
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADMIN TAB 7: PENGATURAN -->
+      <div id="admin-tab-settings" class="admin-tab-content hidden space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 max-w-2xl">
+          <h3 class="font-extrabold text-lg text-slate-900">Pengaturan Sistem Pilkades</h3>
+          
+          <div class="space-y-3 text-xs">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Nama Kegiatan</label>
+              <input type="text" id="set-event-name" value="Pemilihan Kepala Desa Segaran" class="w-full border border-slate-300 p-2.5 rounded-lg">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Tahun Pemilihan</label>
+              <input type="text" id="set-event-year" value="2026" class="w-full border border-slate-300 p-2.5 rounded-lg">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Password Admin</label>
+              <input type="password" id="set-admin-pass" value="admin123" class="w-full border border-slate-300 p-2.5 rounded-lg">
+            </div>
+          </div>
+
+          <button onclick="app.saveSettings()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-2.5 rounded-lg transition">
+            Simpan Pengaturan
+          </button>
+
+          <hr class="my-6">
+
+          <div class="bg-red-50 border border-red-200 p-4 rounded-xl space-y-2">
+            <h4 class="font-bold text-red-700 text-sm flex items-center">
+              <i class="fa-solid fa-triangle-exclamation me-2"></i> Zona Bahaya: Reset Data Pemilihan
+            </h4>
+            <p class="text-xs text-red-600">Proses ini akan menghapus seluruh data suara, status pemilih, dan riwayat transaksi. Tindakan ini tidak dapat dibatalkan.</p>
+            <button onclick="app.promptResetData()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition mt-2">
+              <i class="fa-solid fa-trash-can me-1"></i> RESET DATA PEMILIHAN
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="modal-alert" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl text-center space-y-5">
+      <div id="modal-alert-icon" class="inline-flex p-4 bg-amber-100 text-amber-600 rounded-2xl">
+        <i class="fa-solid fa-circle-exclamation text-4xl"></i>
+      </div>
+      <div>
+        <h3 id="modal-alert-title" class="text-xl font-black text-slate-900">PEMBERITAHUAN</h3>
+        <p id="modal-alert-message" class="text-sm text-slate-600 mt-2 font-semibold">Pesan pemberitahuan...</p>
+      </div>
+      <button onclick="app.closeModal('modal-alert')" class="w-full bg-slate-900 hover:bg-black text-white font-bold py-3.5 px-4 rounded-xl shadow transition text-sm">
+        OK
+      </button>
+    </div>
+  </div>
+
+  <div id="modal-admin-login" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative">
+      <button onclick="app.closeAdminModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="text-center space-y-2 mb-6">
+        <div class="inline-flex p-3 bg-slate-900 text-amber-400 rounded-2xl mb-1">
+          <i class="fa-solid fa-user-gear text-3xl"></i>
+        </div>
+        <h3 class="text-xl font-extrabold text-slate-900">LOGIN ADMINISTRATOR</h3>
+        <p class="text-xs text-slate-500">Masukkan kredensial administrator untuk mengelola sistem</p>
+      </div>
+
+      <form onsubmit="app.submitAdminLogin(event)" class="space-y-4 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Username</label>
+          <input type="text" id="admin-username" value="admin" class="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-semibold">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Password / PIN</label>
+          <input type="password" id="admin-password" value="admin123" class="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-semibold">
+        </div>
+        <button type="submit" class="w-full bg-slate-900 hover:bg-black text-white font-bold py-3.5 px-4 rounded-xl shadow transition text-sm">
+          MASUK DASHBOARD
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-confirm-step1" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl text-center space-y-6">
+      <div class="inline-flex p-4 bg-amber-100 text-amber-600 rounded-2xl">
+        <i class="fa-solid fa-circle-question text-4xl"></i>
+      </div>
+      <div>
+        <h3 class="text-2xl font-black text-slate-900">APAKAH ANDA YAKIN DENGAN PILIHAN ANDA?</h3>
+        <p class="text-sm text-slate-500 mt-2">Pastikan pilihan Anda telah sesuai dengan keinginan Anda.</p>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <button onclick="app.confirmStep1(false)" class="bg-red-600 hover:bg-red-700 text-white font-black py-4 px-6 rounded-2xl text-lg shadow transition">
+          ✖ TIDAK
+        </button>
+        <button onclick="app.confirmStep1(true)" class="bg-blue-600 hover:bg-blue-700 text-white font-black py-4 px-6 rounded-2xl text-lg shadow transition">
+          ✔ YAKIN
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-confirm-step2" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl text-center space-y-6">
+      <div class="inline-flex p-4 bg-blue-100 text-blue-600 rounded-2xl">
+        <i class="fa-solid fa-circle-info text-4xl"></i>
+      </div>
+      <div>
+        <h3 class="text-2xl font-black text-slate-900">PILIHAN ANDA TELAH DIPILIH</h3>
+        <p class="text-sm text-slate-500 mt-2">Apakah Anda ingin melanjutkan untuk menyimpan dan mencetak suara?</p>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <button onclick="app.confirmStep2(false)" class="bg-red-600 hover:bg-red-700 text-white font-black py-4 px-6 rounded-2xl text-lg shadow transition">
+          ✖ KEMBALI
+        </button>
+        <button onclick="app.confirmStep2(true)" class="bg-blue-600 hover:bg-blue-700 text-white font-black py-4 px-6 rounded-2xl text-lg shadow transition">
+          ✔ LANJUTKAN
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-confirm-step3" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl text-center space-y-6">
+      <div class="inline-flex p-4 bg-blue-100 text-blue-600 rounded-2xl">
+        <i class="fa-solid fa-lock text-4xl"></i>
+      </div>
+      <div>
+        <h3 class="text-2xl font-black text-slate-900">KONFIRMASI AKHIR</h3>
+        <p class="text-sm text-slate-500 mt-2">Klik tombol SELESAI di bawah ini untuk mengunci dan memproses surat suara Anda.</p>
+      </div>
+      <button onclick="app.finalizeVoteTransaction()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 px-6 rounded-2xl text-2xl shadow-xl shadow-blue-600/30 transition transform hover:scale-102">
+        ✔ SELESAI
+      </button>
+    </div>
+  </div>
+
+  <div id="modal-empty-vote-warning" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl text-center space-y-6">
+      <div class="inline-flex p-4 bg-amber-100 text-amber-600 rounded-2xl">
+        <i class="fa-solid fa-triangle-exclamation text-4xl"></i>
+      </div>
+      <div>
+        <h3 class="text-2xl font-black text-slate-900">ANDA BELUM MEMILIH CALON</h3>
+        <p class="text-sm text-slate-600 mt-2">Apakah Anda yakin ingin menyelesaikan proses ini tanpa memilih calon? Suara Anda akan dicatat sebagai <strong class="text-red-600">SUARA TIDAK SAH</strong>.</p>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <button onclick="app.closeModal('modal-empty-vote-warning')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-2xl text-base shadow transition">
+          ✔ KEMBALI MEMILIH
+        </button>
+        <button onclick="app.processEmptyVote()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-4 rounded-2xl text-base shadow transition">
+          ✖ TETAP SELESAI
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-edit-voter" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-slate-900" id="edit-voter-title">Tambah Pemilih</h3>
+        <button onclick="app.closeModal('modal-edit-voter')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="form-edit-voter" onsubmit="app.saveVoter(event)" class="space-y-3 text-sm">
+        <input type="hidden" id="edit-voter-id">
+        <div>
+          <label class="block font-semibold mb-1">Nama Lengkap</label>
+          <input type="text" id="edit-voter-name" required class="w-full border border-slate-300 rounded-lg p-2">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">NIK</label>
+          <input type="text" id="edit-voter-nik" required class="w-full border border-slate-300 rounded-lg p-2">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">TPS</label>
+          <select id="edit-voter-tps" class="w-full border border-slate-300 rounded-lg p-2">
+            <option value="TPS 1">TPS 1</option>
+            <option value="TPS 2">TPS 2</option>
+            <option value="TPS 3">TPS 3</option>
+            <option value="TPS 4">TPS 4</option>
+          </select>
+        </div>
+        <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg mt-4">Simpan Pemilih</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_CANDIDATES = [
+      {
+        id: 1,
+        name: "AHLAL WAKTI, S.E",
+        photo: "Ahlal.JPG"
+      },
+      {
+        id: 2,
+        name: "LINA JULIANASARI , S.Pd.",
+        photo: "LINA.JPG"
+      },
+      {
+        id: 3,
+        name: "H. WARTO, S.Sos.",
+        photo: "Warto.JPG"
+      }
+    ];
+
+    const DEFAULT_VOTERS = [
+      { id: "SEGARAN-2026-000001", name: "Budi Santoso", nik: "3515011205900001", address: "Dusun Segaran RT 06/RW 02", tps: "TPS 1", qrCode: "SEGARAN-2026-000001", used: false, votedAt: null },
+      { id: "SEGARAN-2026-000002", name: "Siti Aminah", nik: "3515015508920002", address: "Dusun Segaran RT 02/RW 01", tps: "TPS 1", qrCode: "SEGARAN-2026-000002", used: false, votedAt: null },
+      { id: "SEGARAN-2026-000003", name: "Ahmad Dahlan", nik: "3515011010880003", address: "Dusun Krajan RT 01/RW 01", tps: "TPS 2", qrCode: "SEGARAN-2026-000003", used: false, votedAt: null },
+      { id: "SEGARAN-2026-000004", name: "Dewi Kartika", nik: "3515014403950004", address: "Dusun Krajan RT 08/RW 02", tps: "TPS 2", qrCode: "SEGARAN-2026-000004", used: false, votedAt: null },
+      { id: "SEGARAN-2026-000005", name: "Eko Prasetyo", nik: "3515012007850005", address: "Dusun Suka Maju RT 10/RW 03", tps: "TPS 3", qrCode: "SEGARAN-2026-000005", used: false, votedAt: null }
+    ];
+
+    class PilkadesApp {
+      constructor() {
+        this.candidates = [];
+        this.voters = [];
+        this.transactions = [];
+        this.adminLoggedIn = false;
+        this.currentActiveVoter = null;
+        this.selectedCandidateIds = [];
+        this.html5QrScanner = null;
+        this.chartInstance = null;
+
+        this.initData();
+      }
+
+      initData() {
+        // Data utama dimuat dari Google Spreadsheet melalui Apps Script.
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(data => {
+              this.candidates = data.candidates || [];
+              this.voters = data.voters || [];
+              this.transactions = data.transactions || [];
+              this.updateGlobalHeaderStats();
+              this.populateQuickVoterSelector();
+            })
+            .withFailureHandler(err => this.showAlert('Gagal memuat data Spreadsheet: ' + (err.message || err), 'KESALAHAN SERVER'))
+            .getAppData();
+        } else {
+          // Mode preview lokal saja; saat deploy sebagai Web App, sumber data adalah Spreadsheet.
+          this.candidates = DEFAULT_CANDIDATES;
+          this.voters = DEFAULT_VOTERS;
+          this.transactions = [];
+          this.updateGlobalHeaderStats();
+          this.populateQuickVoterSelector();
+        }
+      }
+
+      saveState() {
+        // Sinkronisasi data administrasi ke Spreadsheet. Pencatatan suara dilakukan
+        // secara khusus oleh recordVote() agar tidak terjadi suara ganda saat bersamaan.
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withFailureHandler(err => this.showAlert('Gagal menyimpan ke Spreadsheet: ' + (err.message || err), 'GAGAL MENYIMPAN'))
+            .saveAdminData({ candidates: this.candidates, voters: this.voters, transactions: this.transactions });
+        }
+      }
+
+      updateGlobalHeaderStats() {
+        const votedCount = this.voters.filter(v => v.used).length;
+        document.getElementById('global-voted-count').innerText = `${votedCount} Orang`;
+      }
+
+      showAlert(message, title = "PEMBERITAHUAN", iconClass = "fa-circle-exclamation text-amber-600", bgClass = "bg-amber-100") {
+        document.getElementById('modal-alert-title').innerText = title;
+        document.getElementById('modal-alert-message').innerText = message;
+        const iconContainer = document.getElementById('modal-alert-icon');
+        iconContainer.className = `inline-flex p-4 ${bgClass} rounded-2xl`;
+        iconContainer.innerHTML = `<i class="fa-solid ${iconClass} text-4xl"></i>`;
+        document.getElementById('modal-alert').classList.remove('hidden');
+      }
+
+      closeModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+      }
+
+      navTo(viewName) {
+        if(viewName === 'admin' && !this.adminLoggedIn) {
+           this.toggleAdminLogin();
+           return;
+        }
+
+        document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+        const target = document.getElementById(`view-${viewName}`);
+        if (target) target.classList.remove('hidden');
+
+        if (viewName === 'home') {
+          this.populateQuickVoterSelector();
+        } else if (viewName === 'admin') {
+          this.renderAdminResults();
+        }
+      }
+
+      async startScanner() {
+        const container = document.getElementById('reader-container');
+        const status = document.getElementById('camera-status');
+        const startButton = document.getElementById('btn-start-camera');
+        const qrReader = document.getElementById('qr-reader');
+
+        if (this.html5QrScanner && this.html5QrScanner.isScanning) return;
+        if (typeof Html5Qrcode === 'undefined') {
+          status.textContent = 'Library pemindai QR gagal dimuat. Periksa koneksi internet, lalu muat ulang halaman.';
+          return;
+        }
+        if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          status.textContent = 'Browser tidak mengizinkan kamera pada halaman ini. Buka URL Web App /exec langsung melalui HTTPS di Chrome, bukan pratinjau atau browser dalam aplikasi.';
+          this.showAlert(status.textContent, 'KAMERA TIDAK DIDUKUNG', 'fa-video-slash text-amber-600', 'bg-amber-100');
+          return;
+        }
+
+        container.classList.remove('hidden');
+        startButton.disabled = true;
+        startButton.classList.add('opacity-60');
+        status.textContent = 'Meminta izin kamera… pilih Izinkan jika browser menampilkan permintaan akses.';
+
+        try {
+          if (!this.html5QrScanner) this.html5QrScanner = new Html5Qrcode('qr-reader');
+          const config = { fps: 10, qrbox: (viewWidth, viewHeight) => {
+            const side = Math.floor(Math.min(viewWidth, viewHeight, 280) * 0.75);
+            return { width: Math.max(150, side), height: Math.max(150, side) };
+          }, aspectRatio: 1.0, rememberLastUsedCamera: true };
+
+          // Prefer kamera belakang, lalu gunakan kamera pertama yang tersedia jika pilihan tersebut gagal.
+          try {
+            await this.html5QrScanner.start({ facingMode: 'environment' }, config,
+              (decodedText) => { this.stopScanner(); this.verifyVoterQR(decodedText); },
+              () => {});
+          } catch (firstError) {
+            const cameras = await Html5Qrcode.getCameras();
+            if (!cameras || !cameras.length) throw firstError;
+            await this.html5QrScanner.start(cameras[0].id, config,
+              (decodedText) => { this.stopScanner(); this.verifyVoterQR(decodedText); },
+              () => {});
+          }
+          status.textContent = 'Kamera aktif. Arahkan QR Code pemilih ke dalam bingkai.';
+          startButton.querySelector('span').textContent = 'KAMERA AKTIF';
+        } catch (err) {
+          container.classList.add('hidden');
+          const detail = (err && err.message) ? err.message : String(err || 'izin kamera ditolak');
+          status.textContent = 'Kamera gagal aktif. Izinkan akses kamera untuk situs ini, tutup aplikasi lain yang memakai kamera, lalu tekan tombol coba lagi. (' + detail + ')';
+          this.showAlert(status.textContent, 'KAMERA TIDAK AKTIF', 'fa-video-slash text-amber-600', 'bg-amber-100');
+        } finally {
+          startButton.disabled = false;
+          startButton.classList.remove('opacity-60');
+        }
+      }
+
+      async stopScanner() {
+        const container = document.getElementById('reader-container');
+        const status = document.getElementById('camera-status');
+        const startButton = document.getElementById('btn-start-camera');
+        try {
+          if (this.html5QrScanner && this.html5QrScanner.isScanning) {
+            await this.html5QrScanner.stop();
+          }
+        } catch (err) {
+          console.warn('Gagal menghentikan kamera:', err);
+        } finally {
+          container.classList.add('hidden');
+          if (startButton) startButton.querySelector('span').textContent = 'AKTIFKAN KAMERA / SCAN QR';
+          if (status) status.textContent = 'Kamera berhenti. Tekan tombol untuk memindai QR Code.';
+          if (this.html5QrScanner) {
+            try { this.html5QrScanner.clear(); } catch (err) {}
+            this.html5QrScanner = null;
+          }
+        }
+      }
+
+      populateQuickVoterSelector() {
+        const select = document.getElementById('quick-voter-select');
+        select.innerHTML = '';
+        this.voters.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.qrCode;
+          opt.innerText = `${v.name} (${v.tps}) - ${v.used ? 'SUDAH MEMILIH' : 'BELUM MEMILIH'}`;
+          select.appendChild(opt);
+        });
+      }
+
+      processQuickVoter() {
+        const code = document.getElementById('quick-voter-select').value;
+        if (code) {
+          this.verifyVoterQR(code);
+        }
+      }
+
+      verifyVoterQR(qrCodeStr) {
+        const voter = this.voters.find(v => v.qrCode === qrCodeStr || v.id === qrCodeStr);
+
+        if (!voter) {
+          this.showAlert("QR Code data tidak ada", "PEMBERITAHUAN", "fa-xmark text-red-600", "bg-red-100");
+          return;
+        }
+
+        if (voter.used) {
+          this.showAlert("Pemilih sudah Memilih", "PEMBERITAHUAN", "fa-user-check text-amber-600", "bg-amber-100");
+          return;
+        }
+
+        this.currentActiveVoter = voter;
+        this.selectedCandidateIds = [];
+        this.renderVotingBallot();
+        this.navTo('voting');
+      }
+
+      renderVotingBallot() {
+        document.getElementById('voting-voter-name').innerText = this.currentActiveVoter.name;
+        document.getElementById('voting-voter-info').innerText = `NIK: ${this.currentActiveVoter.nik} | ${this.currentActiveVoter.tps}`;
+
+        const grid = document.getElementById('candidates-grid');
+        grid.innerHTML = '';
+
+        this.candidates.forEach(cand => {
+          const isSelected = this.selectedCandidateIds.includes(cand.id);
+          const card = document.createElement('div');
+          card.className = `candidate-card cursor-pointer text-center relative overflow-hidden flex flex-col transition ${isSelected ? 'selected' : ''}`;
+          card.setAttribute('role', 'button');
+          card.setAttribute('aria-label', `Pilih ${cand.name}`);
+          card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+          card.onclick = () => this.toggleCandidateSelection(cand.id);
+
+          card.innerHTML = `
+            <div class="candidate-photo">
+              <img src="${cand.photo}" alt="${cand.name}">
+            </div>
+            <h3 class="candidate-number">${String(cand.id).padStart(2, '0')}</h3>
+            <h4 class="candidate-name">${cand.name}</h4>
+          `;
+          grid.appendChild(card);
+        });
+      }
+
+      toggleCandidateSelection(candId) {
+        const idx = this.selectedCandidateIds.indexOf(candId);
+        if (idx > -1) {
+          this.selectedCandidateIds.splice(idx, 1);
+        } else {
+          this.selectedCandidateIds.push(candId);
+        }
+        this.renderVotingBallot();
+      }
+
+      initiateConfirmation() {
+        if (this.selectedCandidateIds.length === 0) {
+          document.getElementById('modal-empty-vote-warning').classList.remove('hidden');
+          return;
+        }
+        document.getElementById('modal-confirm-step1').classList.remove('hidden');
+      }
+
+      processEmptyVote() {
+        document.getElementById('modal-empty-vote-warning').classList.add('hidden');
+        document.getElementById('modal-confirm-step1').classList.remove('hidden');
+      }
+
+      confirmStep1(isConfirmed) {
+        document.getElementById('modal-confirm-step1').classList.add('hidden');
+        if (isConfirmed) {
+          document.getElementById('modal-confirm-step2').classList.remove('hidden');
+        }
+      }
+
+      confirmStep2(isConfirmed) {
+        document.getElementById('modal-confirm-step2').classList.add('hidden');
+        if (isConfirmed) {
+          document.getElementById('modal-confirm-step3').classList.remove('hidden');
+        }
+      }
+
+      finalizeVoteTransaction() {
+        document.getElementById('modal-confirm-step3').classList.add('hidden');
+        if (!this.currentActiveVoter) {
+          this.showAlert('Data pemilih aktif tidak ditemukan. Silakan scan ulang QR pemilih.', 'PEMILIH TIDAK VALID');
+          this.navTo('home'); return;
+        }
+        const payload = {
+          voterId: this.currentActiveVoter.id,
+          selectedCandidateIds: [...this.selectedCandidateIds]
+        };
+        const finish = result => {
+          this.transactions = result.transactions || this.transactions;
+          this.voters = result.voters || this.voters;
+          this.updateGlobalHeaderStats();
+          this.populateQuickVoterSelector();
+          this.renderReceipt(result.transaction, result.candidateNameStr);
+          this.navTo('receipt');
+        };
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(finish)
+            .withFailureHandler(err => {
+              this.showAlert((err && err.message) ? err.message : String(err), 'SUARA TIDAK TERSIMPAN');
+              this.navTo('home');
+            })
+            .recordVote(payload);
+        } else {
+          // Pratinjau lokal saja, bukan untuk pemungutan suara sebenarnya.
+          const now = new Date();
+          const status = payload.selectedCandidateIds.length === 1 ? 'SAH' : 'TIDAK SAH';
+          const cand = this.candidates.find(c => c.id === payload.selectedCandidateIds[0]);
+          const candidateNameStr = payload.selectedCandidateIds.length === 0 ? 'TIDAK MEMILIH CALON' : payload.selectedCandidateIds.length > 1 ? 'MEMILIH LEBIH DARI SATU' : (cand ? cand.name : 'TIDAK DIKETAHUI');
+          const transaction = { trxId: `TRX-${now.getTime()}`, voterId: this.currentActiveVoter.id, tps: this.currentActiveVoter.tps, selectedCandidateIds: [...payload.selectedCandidateIds], status, timestamp: now.toISOString() };
+          this.transactions.push(transaction);
+          const voter = this.voters.find(v => v.id === this.currentActiveVoter.id);
+          if (voter) { voter.used = true; voter.votedAt = now.toISOString(); }
+          finish({transaction, candidateNameStr, voters:this.voters, transactions:this.transactions});
+        }
+      }
+
+      renderReceipt(trx, candidateNameStr) {
+        document.getElementById('receipt-trx-id').innerText = trx.trxId;
+        document.getElementById('receipt-candidate-name').innerText = candidateNameStr;
+        
+        const badge = document.getElementById('receipt-status-badge');
+        const noteContainer = document.getElementById('receipt-note-container');
+        
+        if (trx.status === 'SAH') {
+          badge.innerText = 'SAH';
+          badge.className = 'inline-block px-3 py-1 rounded font-black text-sm text-white bg-blue-600';
+          noteContainer.classList.add('hidden');
+        } else {
+          badge.innerText = 'TIDAK SAH';
+          badge.className = 'inline-block px-3 py-1 rounded font-black text-sm text-white bg-red-600';
+          noteContainer.classList.remove('hidden');
+          if(trx.selectedCandidateIds.length === 0) {
+             document.getElementById('receipt-note-text').innerText = "Surat suara kosong.";
+          } else {
+             document.getElementById('receipt-note-text').innerText = "Memilih lebih dari satu calon.";
+          }
+        }
+
+        const dateObj = new Date(trx.timestamp);
+        document.getElementById('receipt-timestamp').innerText = dateObj.toLocaleString('id-ID');
+
+        const qrContainer = document.getElementById('receipt-qr');
+        qrContainer.innerHTML = '';
+        new QRCode(qrContainer, {
+          text: trx.trxId,
+          width: 80,
+          height: 80,
+          colorDark : "#0f172a",
+          colorLight : "#ffffff",
+          correctLevel : QRCode.CorrectLevel.L
+        });
+      }
+
+      resetToHome() {
+        this.currentActiveVoter = null;
+        this.selectedCandidateIds = [];
+        this.navTo('home');
+      }
+
+      async downloadReceiptPDF() {
+        const receiptEl = document.getElementById('receipt-paper');
+        if(!receiptEl) return;
+
+        const originalBorder = receiptEl.style.border;
+        receiptEl.style.border = 'none';
+
+        try {
+          const canvas = await html2canvas(receiptEl, {
+            scale: 2, 
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#f8fafc' 
+          });
+
+          const imgData = canvas.toDataURL('image/png');
+          const pdf = new window.jspdf.jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: [80, 150] 
+          });
+
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+          pdf.save(`Struk_Pilkades_${document.getElementById('receipt-trx-id').innerText}.pdf`);
+        } catch (error) {
+          console.error("Error generating PDF:", error);
+          this.showAlert("Gagal membuat file PDF.", "ERROR", "fa-xmark text-red-600", "bg-red-100");
+        } finally {
+          receiptEl.style.border = originalBorder; 
+        }
+      }
+
+      toggleAdminLogin() {
+        if (this.adminLoggedIn) {
+          this.navTo('admin');
+        } else {
+          document.getElementById('modal-admin-login').classList.remove('hidden');
+        }
+      }
+
+      closeAdminModal() {
+        document.getElementById('modal-admin-login').classList.add('hidden');
+      }
+
+      submitAdminLogin(e) {
+        e.preventDefault();
+        const user = document.getElementById('admin-username').value;
+        const pass = document.getElementById('admin-password').value;
+        const correctPass = document.getElementById('set-admin-pass')?.value || 'admin123';
+
+        if (user === 'admin' && pass === correctPass) {
+          this.adminLoggedIn = true;
+          this.closeAdminModal();
+          document.getElementById('nav-admin-text').innerText = "DASHBOARD";
+          this.navTo('admin');
+        } else {
+          this.showAlert("Username atau Password salah!", "LOGIN GAGAL", "fa-triangle-exclamation text-red-600", "bg-red-100");
+        }
+      }
+
+      logoutAdmin() {
+        this.adminLoggedIn = false;
+        document.getElementById('nav-admin-text').innerText = "ADMIN";
+        this.navTo('home');
+      }
+
+      switchAdminTab(tabName) {
+        document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.admin-tab-btn').forEach(el => {
+          el.classList.remove('active', 'bg-blue-600', 'text-white');
+          el.classList.add('bg-white', 'text-slate-700');
+        });
+
+        document.getElementById(`admin-tab-${tabName}`).classList.remove('hidden');
+        const btn = document.getElementById(`tab-btn-${tabName}`);
+        btn.classList.add('active', 'bg-blue-600', 'text-white');
+        btn.classList.remove('bg-white', 'text-slate-700');
+
+        if (tabName === 'results') this.renderAdminResults();
+        if (tabName === 'voters') this.renderVotersTable();
+        if (tabName === 'candidates') this.renderCandidateEditor();
+        if (tabName === 'reports') this.renderReports();
+        if (tabName === 'qrcodes') this.renderQRStats();
+        if (tabName === 'invitations') this.renderInvitationsPreview();
+      }
+
+      renderAdminResults() {
+        const totalRegistered = this.voters.length;
+        const totalVoted = this.voters.filter(v => v.used).length;
+        const totalUnvoted = totalRegistered - totalVoted;
+        
+        const validVotes = this.transactions.filter(t => t.status === 'SAH').length;
+        const invalidVotes = this.transactions.filter(t => t.status === 'TIDAK SAH').length;
+
+        document.getElementById('stat-registered').innerText = totalRegistered;
+        document.getElementById('stat-voted').innerText = totalVoted;
+        document.getElementById('stat-unvoted').innerText = totalUnvoted;
+        document.getElementById('stat-total-votes').innerText = this.transactions.length;
+        document.getElementById('stat-valid-votes').innerText = validVotes;
+        document.getElementById('stat-invalid-votes').innerText = invalidVotes;
+
+        const resultsContainer = document.getElementById('admin-results-candidates');
+        resultsContainer.innerHTML = '';
+        
+        const labels = [];
+        const dataPoints = [];
+
+        this.candidates.forEach(cand => {
+          const votes = this.transactions.filter(t => t.status === 'SAH' && t.selectedCandidateIds.includes(cand.id)).length;
+          const percentage = validVotes > 0 ? ((votes / validVotes) * 100).toFixed(1) : 0;
+
+          labels.push(cand.name);
+          dataPoints.push(votes);
+
+          resultsContainer.innerHTML += `
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+               <div class="w-16 h-16 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0">
+                  <img src="${cand.photo}" class="w-full h-full object-cover">
+               </div>
+               <div class="flex-grow">
+                 <p class="text-xs font-bold text-slate-500 uppercase">Calon 0${cand.id}</p>
+                 <h4 class="font-extrabold text-slate-900 leading-tight">${cand.name}</h4>
+                 <div class="flex justify-between items-end mt-1">
+                   <p class="text-xl font-black text-blue-700">${votes} Suara</p>
+                   <p class="text-xs font-bold text-slate-400">${percentage}%</p>
+                 </div>
+               </div>
+            </div>
+          `;
+        });
+
+        this.updateChart(labels, dataPoints);
+      }
+
+      updateChart(labels, dataPoints) {
+        const ctx = document.getElementById('resultsChart').getContext('2d');
+        if (this.chartInstance) {
+          this.chartInstance.destroy();
+        }
+        
+        this.chartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Perolehan Suara Sah',
+              data: dataPoints,
+              backgroundColor: 'rgba(16, 185, 129, 0.8)',
+              borderColor: 'rgba(5, 150, 105, 1)',
+              borderWidth: 1,
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            },
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
+      }
+
+      renderCandidateEditor() {
+        const grid = document.getElementById('admin-candidate-editor-grid');
+        grid.innerHTML = '';
+
+        this.candidates.forEach(cand => {
+          const escapedPhoto = cand.photo ? cand.photo.replace(/"/g, '&quot;').replace(/'/g, '&#39;') : '';
+          const escapedName = cand.name ? cand.name.replace(/"/g, '&quot;').replace(/'/g, '&#39;') : '';
+
+          grid.innerHTML += `
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3 flex flex-col">
+              <div class="flex justify-between items-center">
+                <span class="bg-slate-900 text-white font-bold text-xs px-2 py-1 rounded">ID: ${cand.id}</span>
+                <button onclick="app.deleteCandidate(${cand.id})" class="text-red-500 hover:text-red-700 text-xs font-bold flex items-center gap-1">
+                  <i class="fa-solid fa-trash"></i> Hapus
+                </button>
+              </div>
+              
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Nama Calon</label>
+                <input type="text" id="edit-cand-name-${cand.id}" value="${escapedName}" class="w-full border border-slate-300 rounded p-2 text-sm font-semibold focus:ring-2 focus:ring-blue-500 outline-none">
+              </div>
+              
+               <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Upload Foto Calon (File Lokal)</label>
+                <input type="file" id="upload-cand-photo-${cand.id}" accept="image/*" onchange="app.handlePhotoUpload(event, ${cand.id})" class="w-full text-xs file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+              </div>
+
+              <div>
+                <label class="block text-[10px] font-bold text-slate-700 mb-1">Atau Gunakan Link URL (Google Drive Direct Link, dll)</label>
+                <div class="flex gap-2">
+                  <input type="text" id="url-cand-photo-${cand.id}" placeholder="https://..." class="w-full border border-slate-300 rounded p-1.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                  <button onclick="app.applyPhotoUrl(${cand.id})" class="bg-slate-200 hover:bg-slate-300 px-3 py-1.5 rounded text-xs font-bold transition whitespace-nowrap">Terapkan URL</button>
+                </div>
+              </div>
+              
+              <div class="w-24 h-24 mx-auto rounded-lg overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center mt-2 flex-shrink-0">
+                 <img src="${cand.photo}" id="preview-cand-photo-${cand.id}" class="w-full h-full object-cover">
+              </div>
+              
+              <div class="mt-auto pt-3">
+                <button onclick="app.saveCandidateEdit(${cand.id})" class="w-full bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold text-xs py-2 rounded transition">
+                  Simpan Perubahan Calon ${cand.id}
+                </button>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      applyPhotoUrl(id) {
+        const urlInput = document.getElementById(`url-cand-photo-${id}`).value;
+        if(urlInput) {
+           document.getElementById(`preview-cand-photo-${id}`).src = urlInput;
+           this.showAlert("URL Diterapkan ke preview. Jangan lupa klik 'Simpan Perubahan' agar tersimpan.", "INFO", "fa-circle-info text-blue-600", "bg-blue-100");
+        }
+      }
+
+      addCandidate() {
+        const newId = this.candidates.length > 0 ? Math.max(...this.candidates.map(c => c.id)) + 1 : 1;
+        this.candidates.push({
+          id: newId,
+          name: `Calon Baru ${newId}`,
+          photo: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><rect width='100%' height='100%' fill='%2394a3b8'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' fill='white'>NO PHOTO</text></svg>"
+        });
+        this.saveState();
+        this.renderCandidateEditor();
+        this.showAlert(`Calon dengan ID ${newId} berhasil ditambahkan.`, "SUKSES", "fa-check text-blue-600", "bg-blue-100");
+      }
+
+      deleteCandidate(id) {
+        if(confirm(`Yakin ingin menghapus calon ID ${id}? Suara yang sudah masuk untuk calon ini mungkin tidak akan teridentifikasi dengan benar.`)) {
+          this.candidates = this.candidates.filter(c => c.id !== id);
+          this.saveState();
+          this.renderCandidateEditor();
+        }
+      }
+
+      handlePhotoUpload(event, id) {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const base64String = e.target.result;
+            document.getElementById(`preview-cand-photo-${id}`).src = base64String;
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+
+      saveCandidateEdit(id) {
+        const cand = this.candidates.find(c => c.id === id);
+        if(cand) {
+          cand.name = document.getElementById(`edit-cand-name-${id}`).value;
+          const photoSrc = document.getElementById(`preview-cand-photo-${id}`).src;
+          if (photoSrc && !photoSrc.includes('NO PHOTO')) {
+              cand.photo = photoSrc;
+          }
+          
+          this.saveState();
+          this.showAlert("Perubahan data calon berhasil disimpan.", "BERHASIL", "fa-check text-blue-600", "bg-blue-100");
+          this.renderCandidateEditor(); 
+        }
+      }
+
+      renderVotersTable() {
+        const tbody = document.getElementById('voters-table-body');
+        tbody.innerHTML = '';
+        
+        let filtered = this.voters;
+        const search = document.getElementById('voter-search-input').value.toLowerCase();
+        const status = document.getElementById('voter-status-filter').value;
+
+        if (search) {
+          filtered = filtered.filter(v => v.name.toLowerCase().includes(search) || v.nik.includes(search) || v.tps.toLowerCase().includes(search) || v.qrCode.toLowerCase().includes(search));
+        }
+
+        if (status === 'VOTED') filtered = filtered.filter(v => v.used);
+        if (status === 'NOT_VOTED') filtered = filtered.filter(v => !v.used);
+
+        filtered.forEach((v, idx) => {
+          tbody.innerHTML += `
+            <tr class="hover:bg-slate-50 transition">
+              <td class="p-3 border-b">${idx + 1}</td>
+              <td class="p-3 border-b font-mono font-bold text-slate-800">${v.id}</td>
+              <td class="p-3 border-b font-bold">${v.name}</td>
+              <td class="p-3 border-b">${v.nik}</td>
+              <td class="p-3 border-b">${v.tps}</td>
+              <td class="p-3 border-b text-[10px] font-mono">${v.qrCode}</td>
+              <td class="p-3 border-b">
+                ${v.used ? '<span class="bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold text-[10px]">SUDAH MEMILIH</span>' : '<span class="bg-slate-100 text-slate-600 px-2 py-1 rounded font-bold text-[10px]">BELUM MEMILIH</span>'}
+              </td>
+              <td class="p-3 border-b text-[10px]">${v.votedAt ? new Date(v.votedAt).toLocaleString('id-ID') : '-'}</td>
+            </tr>
+          `;
+        });
+      }
+
+      filterVotersTable() {
+        this.renderVotersTable();
+      }
+
+      openAddVoterModal() {
+        document.getElementById('edit-voter-id').value = '';
+        document.getElementById('edit-voter-name').value = '';
+        document.getElementById('edit-voter-nik').value = '';
+        document.getElementById('edit-voter-tps').value = 'TPS 1';
+        document.getElementById('modal-edit-voter').classList.remove('hidden');
+      }
+
+      saveVoter(e) {
+        e.preventDefault();
+        const name = document.getElementById('edit-voter-name').value;
+        const nik = document.getElementById('edit-voter-nik').value;
+        const tps = document.getElementById('edit-voter-tps').value;
+        
+        const newId = `SEGARAN-${document.getElementById('set-event-year')?.value || '2026'}-${(this.voters.length + 1).toString().padStart(6, '0')}`;
+        
+        this.voters.push({
+          id: newId,
+          name: name,
+          nik: nik,
+          address: "-",
+          tps: tps,
+          qrCode: newId,
+          used: false,
+          votedAt: null
+        });
+
+        this.saveState();
+        this.closeModal('modal-edit-voter');
+        this.renderVotersTable();
+        this.showAlert("Pemilih baru berhasil ditambahkan.", "SUKSES");
+      }
+
+      renderReports() {
+        const thead = document.getElementById('tps-report-thead');
+        const tbody = document.getElementById('tps-report-tbody');
+        const tfoot = document.getElementById('tps-report-tfoot');
+
+        tbody.innerHTML = '';
+        thead.innerHTML = '';
+        tfoot.innerHTML = '';
+        
+        const tpsList = [...new Set(this.voters.map(v => v.tps))].sort();
+        const cands = this.candidates;
+
+        let headerHTML = `
+          <tr>
+            <th class="p-2.5 border-b border-r border-slate-200">Nama TPS</th>
+            <th class="p-2.5 border-b">Total Pemilih</th>
+            <th class="p-2.5 border-b">Hadir/Memilih</th>
+            <th class="p-2.5 border-b border-r border-slate-200">Belum Memilih</th>
+        `;
+        cands.forEach(c => {
+            headerHTML += `<th class="p-2.5 border-b text-blue-800 bg-blue-50/50">Suara C.0${c.id}</th>`;
+        });
+        headerHTML += `
+            <th class="p-2.5 border-b border-l border-slate-200 text-blue-800 bg-blue-50/50">Total Sah</th>
+            <th class="p-2.5 border-b text-red-700 bg-red-50/50">Tidak Sah</th>
+            <th class="p-2.5 border-b">Partisipasi</th>
+          </tr>
+        `;
+        thead.innerHTML = headerHTML;
+
+        let gTotal = 0, gVoted = 0, gUnvoted = 0, gSah = 0, gTidakSah = 0;
+        let gCandVotes = {};
+        cands.forEach(c => gCandVotes[c.id] = 0);
+        
+        tpsList.forEach(tps => {
+          const tpsVoters = this.voters.filter(v => v.tps === tps);
+          const total = tpsVoters.length;
+          const voted = tpsVoters.filter(v => v.used).length;
+          const unvoted = total - voted;
+          
+          const tpsTransactions = this.transactions.filter(t => t.tps === tps);
+          const sah = tpsTransactions.filter(t => t.status === 'SAH').length;
+          const tidakSah = tpsTransactions.filter(t => t.status === 'TIDAK SAH').length;
+
+          gTotal += total; gVoted += voted; gUnvoted += unvoted;
+          gSah += sah; gTidakSah += tidakSah;
+
+          let rowHTML = `
+             <tr class="hover:bg-slate-100 transition">
+              <td class="p-2.5 border-b border-r border-slate-200 font-bold bg-slate-50">${tps}</td>
+              <td class="p-2.5 border-b">${total}</td>
+              <td class="p-2.5 border-b text-slate-800 font-bold">${voted}</td>
+              <td class="p-2.5 border-b border-r border-slate-200 text-slate-500">${unvoted}</td>
+          `;
+
+          cands.forEach(c => {
+             const cVotes = tpsTransactions.filter(t => t.status === 'SAH' && t.selectedCandidateIds.includes(c.id)).length;
+             gCandVotes[c.id] += cVotes;
+             rowHTML += `<td class="p-2.5 border-b font-black text-blue-700 bg-blue-50/30">${cVotes}</td>`;
+          });
+
+          const pct = total > 0 ? ((voted/total)*100).toFixed(1) : 0;
+          rowHTML += `
+              <td class="p-2.5 border-b border-l border-slate-200 font-black text-blue-700 bg-blue-50/30">${sah}</td>
+              <td class="p-2.5 border-b font-black text-red-600 bg-red-50/30">${tidakSah}</td>
+              <td class="p-2.5 border-b font-mono">${pct}%</td>
+            </tr>
+          `;
+          tbody.innerHTML += rowHTML;
+        });
+
+        const gPct = gTotal > 0 ? ((gVoted/gTotal)*100).toFixed(1) : 0;
+        let footerHTML = `
+          <tr>
+            <td class="p-2.5 border-r border-slate-300 text-right uppercase text-slate-900">Total Keseluruhan</td>
+            <td class="p-2.5 text-slate-900">${gTotal}</td>
+            <td class="p-2.5 text-slate-900">${gVoted}</td>
+            <td class="p-2.5 border-r border-slate-300 text-slate-900">${gUnvoted}</td>
+        `;
+        cands.forEach(c => {
+            footerHTML += `<td class="p-2.5 text-blue-800 text-sm bg-blue-100/50">${gCandVotes[c.id]}</td>`;
+        });
+        footerHTML += `
+            <td class="p-2.5 border-l border-slate-300 text-blue-800 text-sm bg-blue-100/50">${gSah}</td>
+            <td class="p-2.5 text-red-800 text-sm bg-red-100/50">${gTidakSah}</td>
+            <td class="p-2.5 font-mono text-slate-900">${gPct}%</td>
+          </tr>
+        `;
+        tfoot.innerHTML = footerHTML;
+      }
+
+      renderQRStats() {
+        document.getElementById('qr-stat-total').innerText = this.voters.length;
+        document.getElementById('qr-stat-used').innerText = this.voters.filter(v=>v.used).length;
+        document.getElementById('qr-stat-unused').innerText = this.voters.filter(v=>!v.used).length;
+        document.getElementById('qr-stat-invalid').innerText = 0; 
+      }
+
+      lookupQR() {
+        const val = document.getElementById('qr-lookup-input').value;
+        const resDiv = document.getElementById('qr-lookup-result');
+        if(val.length < 5) {
+          resDiv.classList.add('hidden');
+          return;
+        }
+
+        const voter = this.voters.find(v => v.qrCode === val || v.id === val);
+        resDiv.classList.remove('hidden');
+
+        if(voter) {
+           resDiv.className = `p-4 rounded-lg text-xs mt-3 ${voter.used ? 'bg-amber-100 border border-amber-300' : 'bg-blue-100 border border-blue-300'}`;
+           resDiv.innerHTML = `
+            <p class="font-bold text-lg mb-1">${voter.name}</p>
+            <p>ID: ${voter.id} | TPS: ${voter.tps}</p>
+            <p class="font-bold mt-2 ${voter.used ? 'text-amber-700' : 'text-blue-700'}">STATUS: ${voter.used ? 'SUDAH DIGUNAKAN PADA '+new Date(voter.votedAt).toLocaleString() : 'BELUM DIGUNAKAN (VALID)'}</p>
+           `;
+        } else {
+           resDiv.className = "p-4 rounded-lg text-xs mt-3 bg-red-100 border border-red-300 text-red-700 font-bold";
+           resDiv.innerHTML = "QR CODE TIDAK DITEMUKAN DALAM DATABASE";
+        }
+      }
+
+      // --- FUNGSI BARU UNTUK UNDANGAN PREVIEW & DOWNLOAD ---
+      
+      renderInvitationsPreview() {
+        const tps = document.getElementById('invitation-tps-select').value;
+        let targets = this.voters;
+        if(tps !== 'ALL') targets = targets.filter(v => v.tps === tps);
+
+        const grid = document.getElementById('invitations-preview-grid');
+        grid.innerHTML = '';
+
+        targets.forEach(v => {
+            const safeId = v.id.replace(/[^a-zA-Z0-9_-]/g, '');
+            const card = document.createElement('div');
+            card.className = "bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between";
+            
+            const printAreaId = `invite-print-${safeId}`;
+            
+            card.innerHTML = `
+                <div id="${printAreaId}" class="p-6 bg-white border-2 border-slate-800 rounded-lg relative overflow-hidden mb-4 shadow-sm h-full flex flex-col justify-center">
+                    <div class="text-center mb-6 border-b-2 border-slate-800 pb-3">
+                        <h2 class="font-black text-lg uppercase tracking-wider text-slate-900">Surat Undangan Memilih</h2>
+                        <p class="text-xs font-bold text-slate-600 uppercase">Pilkades Segaran 2026</p>
+                    </div>
+                    <div class="flex justify-between items-center gap-4">
+                        <div class="space-y-3 flex-grow">
+                            <div>
+                                <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Nama Pemilih</p>
+                                <p class="font-black text-base text-slate-900 leading-tight">${v.name}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Nomor Induk Kependudukan</p>
+                                <p class="font-bold text-sm text-slate-700">${v.nik}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Lokasi Pemungutan</p>
+                                <p class="font-black text-lg text-blue-700">${v.tps}</p>
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0 text-center flex flex-col items-center justify-center">
+                            <div id="qr-${safeId}" class="p-2 border border-slate-300 rounded-lg bg-white inline-block shadow-sm"></div>
+                            <p class="text-[8px] font-mono font-bold mt-1.5 w-24 break-words text-slate-500">${v.qrCode}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-auto">
+                    <button onclick="app.downloadInvitationPDF('${v.id}')" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-2.5 rounded-lg flex items-center justify-center space-x-1.5 transition">
+                        <i class="fa-solid fa-file-pdf"></i><span>UNDUH PDF</span>
+                    </button>
+                    <button onclick="app.downloadInvitationPNG('${v.id}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-lg flex items-center justify-center space-x-1.5 transition">
+                        <i class="fa-solid fa-image"></i><span>UNDUH PNG</span>
+                    </button>
+                </div>
+            `;
+            grid.appendChild(card);
+
+            new QRCode(document.getElementById(`qr-${safeId}`), {
+                text: v.qrCode,
+                width: 100,
+                height: 100,
+                colorDark : "#0f172a",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.M
+            });
+        });
+      }
+
+      async downloadInvitationPDF(voterId) {
+        const voter = this.voters.find(v => v.id === voterId);
+        if (!voter) return;
+        
+        const safeId = voterId.replace(/[^a-zA-Z0-9_-]/g, '');
+        const element = document.getElementById(`invite-print-${safeId}`);
+        if (!element) return;
+
+        try {
+            const canvas = await html2canvas(element, {
+                scale: 3, 
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new window.jspdf.jsPDF('p', 'mm', 'a4');
+            
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const margin = 15;
+            const contentWidth = pdfWidth - (margin * 2);
+            const contentHeight = (canvas.height * contentWidth) / canvas.width;
+
+            pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
+            
+            const sanitizedName = voter.name.replace(/[^a-zA-Z0-9]/g, '_');
+            pdf.save(`Surat_Undangan_${sanitizedName}.pdf`);
+        } catch (error) {
+            console.error("PDF generation error:", error);
+            this.showAlert("Browser tidak mendukung proses unduh file.", "DOWNLOAD GAGAL");
+        }
+      }
+
+      async downloadInvitationPNG(voterId) {
+        const voter = this.voters.find(v => v.id === voterId);
+        if (!voter) return;
+
+        const safeId = voterId.replace(/[^a-zA-Z0-9_-]/g, '');
+        const element = document.getElementById(`invite-print-${safeId}`);
+        if (!element) return;
+
+        try {
+            const canvas = await html2canvas(element, {
+                scale: 3,
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            });
+
+            const link = document.createElement('a');
+            const sanitizedName = voter.name.replace(/[^a-zA-Z0-9]/g, '_');
+            link.download = `Surat_Undangan_${sanitizedName}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } catch (error) {
+            console.error("PNG generation error:", error);
+            this.showAlert("Browser tidak mendukung proses unduh file.", "DOWNLOAD GAGAL");
+        }
+      }
+
+      async downloadAllInvitationsPDF() {
+        const tps = document.getElementById('invitation-tps-select').value;
+        let targets = this.voters;
+        if (tps !== 'ALL') targets = targets.filter(v => v.tps === tps);
+
+        if (targets.length === 0) {
+            this.showAlert("Tidak ada pemilih untuk diunduh pada TPS ini.", "KOSONG");
+            return;
+        }
+
+        try {
+            const pdf = new window.jspdf.jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const margin = 15;
+            const contentWidth = pdfWidth - (margin * 2);
+
+            let pageAdded = false;
+
+            for (let i = 0; i < targets.length; i++) {
+                const voter = targets[i];
+                const safeId = voter.id.replace(/[^a-zA-Z0-9_-]/g, '');
+                const element = document.getElementById(`invite-print-${safeId}`);
+                
+                if (!element) continue; 
+
+                const canvas = await html2canvas(element, {
+                    scale: 2, 
+                    useCORS: true,
+                    backgroundColor: '#ffffff'
+                });
+
+                const imgData = canvas.toDataURL('image/jpeg', 0.95); 
+                const contentHeight = (canvas.height * contentWidth) / canvas.width;
+
+                if (pageAdded) {
+                    pdf.addPage();
+                }
+                pdf.addImage(imgData, 'JPEG', margin, margin, contentWidth, contentHeight);
+                pageAdded = true;
+            }
+
+            const sanitizedTps = tps.replace(/[^a-zA-Z0-9]/g, '_');
+            pdf.save(`Undangan_Pemilih_${sanitizedTps}.pdf`);
+        } catch (error) {
+            console.error("Batch PDF generation error:", error);
+            this.showAlert("Browser tidak mendukung proses unduh file.", "DOWNLOAD GAGAL");
+        }
+      }
+
+      printInvitations() {
+        const tps = document.getElementById('invitation-tps-select').value;
+        let targets = this.voters;
+        if(tps !== 'ALL') targets = targets.filter(v => v.tps === tps);
+
+        if(targets.length === 0) {
+          this.showAlert("Tidak ada pemilih di TPS terpilih.", "KOSONG");
+          return;
+        }
+        
+        this.showAlert(`Simulasi mencetak ${targets.length} undangan untuk ${tps}. (Gunakan fitur browser print pada jendela khusus)`, "SIMULASI CETAK", "fa-print text-blue-600", "bg-blue-100");
+      }
+
+      promptResetData() {
+        if(confirm("PERINGATAN KERAS!\nApakah Anda benar-benar yakin ingin mereset seluruh data transaksi dan status pemilih? Tindakan ini tidak bisa dibatalkan!")) {
+           this.transactions = [];
+           this.voters.forEach(v => {
+             v.used = false;
+             v.votedAt = null;
+           });
+           this.saveState();
+           this.renderAdminResults();
+           this.showAlert("Sistem telah direset. Semua pemilih kembali berstatus BELUM MEMILIH.", "RESET BERHASIL", "fa-check text-blue-600", "bg-blue-100");
+        }
+      }
+
+      saveSettings() {
+        this.showAlert("Pengaturan disimpan (Simulasi).", "SUKSES", "fa-check text-blue-600", "bg-blue-100");
+      }
+    }
+
+    const app = new PilkadesApp();
+
+    // Jangan meminta kamera otomatis saat halaman dibuka: Apps Script/browser
+    // biasanya memerlukan tindakan langsung dari pengguna untuk meminta izin kamera.
+    window.addEventListener('load', () => {
+      const status = document.getElementById('camera-status');
+      if (status) status.textContent = 'Tekan AKTIFKAN KAMERA / SCAN QR, lalu pilih Izinkan pada permintaan kamera.';
+    });
+  </script>
+  </div>
+</body>
+</html>

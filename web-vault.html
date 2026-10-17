@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTML Vault — Buka File Terenkripsi</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#172033;background:#f4f6fa}
+*{box-sizing:border-box}body{margin:0;padding:24px}
+main{max-width:760px;margin:30px auto;background:white;padding:26px;border-radius:18px;box-shadow:0 12px 38px #18213a18}
+h1{margin:0 0 8px;color:#b91c1c;font-size:clamp(1.5rem,4vw,2rem)}
+p{line-height:1.55;color:#475569}.field{margin:18px 0}
+label{display:block;font-weight:650;margin-bottom:8px}
+input{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:9px;font:inherit}
+button{border:0;border-radius:9px;padding:12px 16px;font:inherit;font-weight:700;cursor:pointer;background:#b91c1c;color:#fff}
+button.secondary{background:#334155}button:disabled{opacity:.55;cursor:wait}
+.actions{display:flex;gap:10px;flex-wrap:wrap}.notice{font-size:.9rem;background:#fff7ed;border:1px solid #fed7aa;padding:12px;border-radius:9px}
+#status{margin-top:14px;min-height:1.4em}iframe{width:100%;height:70vh;border:1px solid #cbd5e1;border-radius:10px;background:white;margin-top:18px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>HTML Vault</h1>
+<p>Pilih file <code>.htmlvault</code> dan masukkan password untuk mendekripsi serta melihat HTML di browser ini.</p>
+<div class="notice">File dan password diproses di browser. Kode contoh ini tidak mengunggahnya ke server. Jangan gunakan halaman ini jika Anda menambahkan skrip pihak ketiga yang tidak tepercaya.</div>
+<div class="field">
+<label for="vault">File terenkripsi (.htmlvault)</label>
+<input id="vault" type="file" accept=".htmlvault,application/octet-stream">
+</div>
+<div class="field">
+<label for="password">Password</label>
+<input id="password" type="password" autocomplete="current-password" placeholder="Masukkan password">
+</div>
+<div class="actions">
+<button id="open">Dekripsi &amp; lihat</button>
+<button id="clear" class="secondary" type="button">Bersihkan</button>
+</div>
+<div id="status" role="status" aria-live="polite"></div>
+<iframe id="preview" class="hidden" title="Pratinjau HTML terdekripsi" sandbox="allow-forms allow-scripts"></iframe>
+<p><small>Untuk mengedit, gunakan aplikasi Windows HTML Vault untuk mendekripsi menjadi file .html. Browser tidak menyimpan file hasil dekripsi ke disk dari halaman ini.</small></p>
+</main>
+<script>
+"use strict";
+const MAGIC = new TextEncoder().encode("HTMLVAULT1");
+const SALT_LEN=16, NONCE_LEN=12, KEY_LEN=32;
+const $ = id => document.getElementById(id);
+function equalBytes(a,b){return a.length===b.length && a.every((v,i)=>v===b[i]);}
+async function deriveKey(password,salt){
+  const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:600000,hash:"SHA-256"},material,{name:"AES-GCM",length:256},false,["decrypt"]);
+}
+$("open").addEventListener("click",async()=>{
+  const file=$("vault").files[0], password=$("password").value;
+  $("status").textContent="";
+  if(!file || !password){$("status").textContent="Pilih file dan masukkan password.";return;}
+  $("open").disabled=true;
+  try{
+    const buf=new Uint8Array(await file.arrayBuffer());
+    const minLen=MAGIC.length+SALT_LEN+NONCE_LEN+16;
+    if(buf.length<minLen || !equalBytes(buf.slice(0,MAGIC.length),MAGIC)){
+      throw new Error("Format file tidak dikenali atau file rusak.");
+    }
+    let offset=MAGIC.length;
+    const salt=buf.slice(offset,offset+SALT_LEN); offset+=SALT_LEN;
+    const nonce=buf.slice(offset,offset+NONCE_LEN); offset+=NONCE_LEN;
+    const ciphertext=buf.slice(offset);
+    const key=await deriveKey(password,salt);
+    const plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:nonce,additionalData:MAGIC,tagLength:128},key,ciphertext);
+    const html=new TextDecoder("utf-8",{fatal:false}).decode(plain);
+    // Display only in a sandboxed iframe. Open only files you trust.
+    $("preview").srcdoc=html;
+    $("preview").classList.remove("hidden");
+    $("status").textContent="Berhasil didekripsi. File tampil di pratinjau; gunakan aplikasi Windows untuk menyimpan hasil sebagai .html agar bisa diedit.";
+  }catch(e){
+    $("status").textContent=(e.name==="OperationError") ? "Password salah atau file terenkripsi rusak." : (e.message || "Dekripsi gagal.");
+    $("preview").classList.add("hidden");
+  }finally{$("open").disabled=false;}
+});
+$("clear").addEventListener("click",()=>{
+  $("vault").value="";$("password").value="";$("status").textContent="";
+  const frame=$("preview");frame.srcdoc="";frame.classList.add("hidden");
+});
+</script>
+</body>
+</html>

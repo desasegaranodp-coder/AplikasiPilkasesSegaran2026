@@ -13,7 +13,7 @@
 #scanScreen.scan-active #adminOpen{display:block!important;position:fixed;top:12px;right:12px;z-index:50;width:auto;margin:0!important;padding:12px 18px;background:#2563eb;color:#fff;box-shadow:0 4px 16px #0005}
 #scanScreen.scan-active .scanner{width:min(100%,1000px);flex:1;min-height:320px;display:flex;align-items:center}
 #scanScreen.scan-active #reader{width:100%}
-#scanScreen.scan-active #reader video{max-height:80vh;object-fit:cover}
+#scanScreen.scan-active #reader video{max-height:100dvh;object-fit:contain}
 /* Keep the confirmation layout within one viewport. */
 #confirmScreen{height:100vh;height:100dvh;min-height:0;padding:clamp(10px,2vw,24px);overflow:hidden}
 #confirmScreen .panel{width:100%;max-width:none;height:100%;min-height:0;display:flex;flex-direction:column;gap:10px;background:transparent;box-shadow:none}
@@ -245,17 +245,33 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
 @media(max-width:420px){#modal .login-card{padding:26px 20px 21px;border-radius:19px}#modal .login-title{font-size:22px}}
 
 
-/* Landscape-friendly QR scanner layout */
-#reader{width:100%!important;max-width:100%;margin:0 auto;overflow:hidden}
-#reader video{width:100%!important;height:100%!important;max-width:100%;object-fit:contain!important}
-#reader canvas{max-width:100%;height:auto}
-@media (orientation:landscape) and (max-height:600px){
- #scanScreen{overflow-y:auto}
- #scanScreen .scan-layout,#scanScreen .scan-content{min-height:0}
- #reader{max-height:calc(100dvh - 190px);min-height:180px}
- #reader video{max-height:calc(100dvh - 190px);object-fit:contain!important}
+/* Scanner: prioritaskan landscape, ukuran adaptif dan seluruh QR tetap terlihat */
+#scanScreen.scan-active{overflow:hidden!important}
+#scanScreen.scan-active .panel{height:100dvh;min-height:0!important;padding:clamp(8px,1.5vw,18px);gap:clamp(4px,1vh,10px);overflow:hidden;justify-content:center;align-items:center}
+#scanScreen.scan-active .title{font-size:clamp(18px,2.7vw,30px);line-height:1.05;margin:0 0 2px}
+#scanScreen.scan-active .sub{font-size:clamp(11px,1.4vw,15px);line-height:1.2;margin:0 0 3px}
+#scanScreen.scan-active .btnrow{display:none!important}
+#scanScreen.scan-active .footer-note{display:none!important}
+#scanScreen.scan-active #scanMsg{font-size:clamp(10px,1.2vw,13px);padding:4px 8px;margin:2px 0;max-width:90vw;line-height:1.2}
+#scanScreen.scan-active #adminOpen{display:block!important;position:fixed;top:8px;right:8px;z-index:50;width:auto;max-width:30vw;margin:0!important;padding:7px 11px;font-size:clamp(10px,1.2vw,13px);border-radius:7px;background:#2563eb;color:#fff;box-shadow:0 2px 8px #0005}
+#scanScreen.scan-active .scanner{width:min(88vw,calc(100dvh - 92px));height:calc(100dvh - 94px);max-height:calc(100dvh - 94px);min-height:0!important;flex:0 1 auto;margin:0 auto;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:10px}
+#scanScreen.scan-active #reader{width:100%!important;height:100%!important;max-width:100%;max-height:100%;margin:0 auto;overflow:hidden}
+#scanScreen.scan-active #reader video{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important}
+#scanScreen.scan-active #reader canvas{max-width:100%!important;height:auto!important}
+/* Fallback untuk browser yang tidak mendukung penguncian orientasi: tampilkan UI landscape */
+@media (orientation:portrait){
+ #scanScreen.scan-active{position:fixed!important;left:0!important;top:0!important;width:100dvh!important;height:100vw!important;min-height:0!important;transform-origin:top left!important;transform:rotate(90deg) translateY(-100%)!important;overflow:hidden!important}
+ #scanScreen.scan-active .panel{width:100%!important;height:100%!important;min-height:0!important;padding:8px 12px!important}
+ #scanScreen.scan-active .scanner{width:min(86vw,calc(100dvh - 82px));height:calc(100vw - 82px);max-height:calc(100vw - 82px)}
+}
+@media (orientation:landscape) and (max-height:520px){
+ #scanScreen.scan-active .panel{padding:5px 10px;gap:3px}
+ #scanScreen.scan-active .title{font-size:clamp(16px,3.3vh,24px)}
+ #scanScreen.scan-active .sub{font-size:clamp(10px,2.2vh,13px)}
+ #scanScreen.scan-active .scanner{height:calc(100dvh - 70px);max-height:calc(100dvh - 70px);width:min(84vw,calc(100dvh - 70px))}
 }
 
+#scanScreen .footer-note{display:none!important}
 </style>
 </head>
 <body>
@@ -372,6 +388,7 @@ async function startCamera({fullscreen=false}={}){
  const screen=$('#scanScreen'), reader=$('#reader');
  screen.classList.add('scan-active');
  if(fullscreen && screen.requestFullscreen){try{await screen.requestFullscreen()}catch(e){console.warn('Mode layar penuh tidak tersedia:',e)}}
+ try{if(screen.orientation && typeof screen.orientation.lock==='function')await screen.orientation.lock('landscape')}catch(e){console.info('Penguncian landscape tidak didukung oleh browser/perangkat; gunakan tampilan landscape otomatis.',e)}
  msg('scanMsg','Mengaktifkan kamera… Jika diminta oleh browser, pilih Izinkan.');
  if(!window.isSecureContext){msg('scanMsg','Kamera memerlukan HTTPS atau localhost. Buka alamat aplikasi melalui HTTPS, lalu izinkan akses kamera.','error');return}
  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){msg('scanMsg','Browser ini tidak menyediakan akses kamera. Buka aplikasi melalui Chrome/Edge terbaru menggunakan HTTPS.','error');return}
@@ -380,7 +397,7 @@ async function startCamera({fullscreen=false}={}){
   if(scanner){try{if(scanner.isScanning)await scanner.stop()}catch(e){console.warn('Stop scanner sebelumnya:',e)}try{scanner.clear()}catch(e){}scanner=null;}
   if(reader)reader.innerHTML='';
   scanner=new Html5Qrcode('reader');
-  const config={fps:12,qrbox:(width,height)=>{const side=Math.floor(Math.min(width,height)*0.72);const size=Math.max(140,Math.min(side,360));return {width:Math.min(size,width),height:Math.min(size,height)}}};
+  const config={fps:15,qrbox:(width,height)=>{const side=Math.floor(Math.min(width,height)*0.68);const size=Math.min(side,420);return {width:Math.max(100,Math.min(size,width)),height:Math.max(100,Math.min(size,height))}}};
   try{
    await scanner.start({facingMode:'environment'},config,text=>processQR(text),()=>{});
   }catch(firstError){
@@ -554,7 +571,7 @@ function download(name,content,type){const a=document.createElement('a');a.href=
 // Tautan langsung panel admin: tambahkan #admin pada URL. Panel tetap dilindungi kata sandi.
 if(location.hash==='#admin') openAdmin();
 // Coba aktifkan kamera otomatis saat halaman dibuka. Browser tetap dapat meminta izin.
-window.addEventListener('load',()=>{if(location.hash!=='#admin') startCamera({fullscreen:false});});
+window.addEventListener('load',()=>{if(location.hash!=='#admin'){try{if(screen.orientation&&typeof screen.orientation.lock==='function')screen.orientation.lock('landscape').catch(()=>{})}catch(e){} startCamera({fullscreen:false});}});
 window.addEventListener('beforeunload',stopScanner);
 </script>
 </body></html>

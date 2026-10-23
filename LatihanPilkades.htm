@@ -244,6 +244,18 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
 @keyframes loginPop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(max-width:420px){#modal .login-card{padding:26px 20px 21px;border-radius:19px}#modal .login-title{font-size:22px}}
 
+
+/* Landscape-friendly QR scanner layout */
+#reader{width:100%!important;max-width:100%;margin:0 auto;overflow:hidden}
+#reader video{width:100%!important;height:100%!important;max-width:100%;object-fit:contain!important}
+#reader canvas{max-width:100%;height:auto}
+@media (orientation:landscape) and (max-height:600px){
+ #scanScreen{overflow-y:auto}
+ #scanScreen .scan-layout,#scanScreen .scan-content{min-height:0}
+ #reader{max-height:calc(100dvh - 190px);min-height:180px}
+ #reader video{max-height:calc(100dvh - 190px);object-fit:contain!important}
+}
+
 </style>
 </head>
 <body>
@@ -364,7 +376,7 @@ async function startCamera({fullscreen=false}={}){
  try{
   if(scanner){try{await scanner.stop()}catch{} try{scanner.clear()}catch{} scanner=null;}
   scanner=new Html5Qrcode('reader');
-  await scanner.start({facingMode:'environment'},{fps:10,qrbox:(width,height)=>{const size=Math.floor(Math.min(width,height)*.8);return {width:size,height:size}}},text=>processQR(text),()=>{});
+  await scanner.start({facingMode:{ideal:'environment'}},{fps:15,qrbox:(width,height)=>{const side=Math.floor(Math.min(width,height)*0.72);const size=Math.max(160,Math.min(side,360));return {width:Math.min(size,width),height:Math.min(size,height)}}},text=>processQR(text),()=>{});
   msg('scanMsg','Kamera aktif. Untuk masuk ke Panel Admin, tekan tombol Admin.','ok');
  }catch(e){
   scanner=null;
@@ -373,6 +385,19 @@ async function startCamera({fullscreen=false}={}){
  }
 }
 $('#startScan').onclick=()=>startCamera({fullscreen:true});
+let scannerLayoutTimer;
+function refreshScannerLayout(){
+ clearTimeout(scannerLayoutTimer);
+ scannerLayoutTimer=setTimeout(()=>{
+  const reader=$('#reader');
+  if(!reader)return;
+  const video=reader.querySelector('video');
+  if(video){video.style.width='100%';video.style.height='100%';video.style.objectFit='contain';}
+ },180);
+}
+window.addEventListener('orientationchange',refreshScannerLayout);
+window.addEventListener('resize',refreshScannerLayout);
+
 $('#manualOpen').onclick=()=>{const code=prompt('Masukkan kode QR dari surat undangan:');if(code!==null)processQR(code)};
 $('#toConfirm').onclick=()=>{if(!selected.length){msg('candidateMsg','Silakan pilih minimal satu calon.','error');return}renderConfirm();show('confirmScreen')};
 $('#redo').onclick=()=>{renderCandidates();show('candidateScreen')};
@@ -385,14 +410,35 @@ function renderReceipt(){const valid=currentVote.status==='SAH',c=valid?db.candi
  $('#receiptResult').innerHTML=`<p class="small"><b>${c?'Suara sah':'Suara tidak sah'}</b></p>${c?`<p class="small">Nama calon: <b>${esc(c.name)}</b></p>`:`<p class="small">Jumlah calon yang dipilih: ${currentVote.selected.length}</p>`}<p class="small">Waktu: ${esc(new Date(currentVote.time).toLocaleString('id-ID'))}</p><p class="small">ID transaksi: ${esc(currentVote.id)}</p>`;
  $('#receiptQR').innerHTML='';if(window.QRCode)new QRCode($('#receiptQR'),{text:JSON.stringify({id:currentVote.id,status:currentVote.status}),width:160,height:160,correctLevel:QRCode.CorrectLevel.M});}
 let printInProgress=false;
-function returnToScanAndRestart(){
+let returningToScan=false;
+async function returnToScanAndRestart(){
+ if(returningToScan)return;
+ returningToScan=true;
  printInProgress=false;
  activeVoter=null;selected=[];currentVote=null;
- stopScanner();
- msg('scanMsg','Menyiapkan kamera pemindai QR Code…');
+ // Tampilkan halaman awal lebih dahulu supaya tombol selalu merespons.
  show('scanScreen');
- // Beri browser waktu untuk menutup dialog cetak dan merender ulang area kamera.
- setTimeout(()=>startCamera({fullscreen:false}),700);
+ $('#scanScreen').classList.remove('scan-active');
+ msg('scanMsg','Menyiapkan kamera pemindai QR Code…');
+ // Pastikan kamera sebelumnya benar-benar berhenti sebelum memulai sesi baru.
+ const oldScanner=scanner;
+ scanner=null;
+ if(oldScanner){
+  try{if(oldScanner.isScanning)await oldScanner.stop()}catch(e){}
+  try{oldScanner.clear()}catch(e){}
+ }
+ const reader=$('#reader');
+ if(reader)reader.innerHTML='';
+ if(document.fullscreenElement){
+  try{await document.exitFullscreen()}catch(e){}
+ }
+ // Tunggu UI dan perangkat kamera siap, lalu nyalakan kembali pemindai.
+ await new Promise(resolve=>setTimeout(resolve,500));
+ try{
+  await startCamera({fullscreen:false});
+ }finally{
+  returningToScan=false;
+ }
 }
 function autoPrintReceipt(){
  if(printInProgress)return;
@@ -409,7 +455,8 @@ window.addEventListener('afterprint',()=>{
 });
 $('#printReceipt').onclick=()=>autoPrintReceipt();
 $('#receiptPrintButton').onclick=()=>{printInProgress=true;setTimeout(()=>window.print(),150)};
-$('#backToScan').onclick=$('#receiptBack').onclick=()=>returnToScanAndRestart();
+$('#backToScan').onclick=(e)=>{e.preventDefault();returnToScanAndRestart()};
+$('#receiptBack').onclick=(e)=>{e.preventDefault();returnToScanAndRestart()};
 function openAdmin(){
  const modal=$('#modal');
  modal.classList.remove('hidden');

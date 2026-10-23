@@ -13,7 +13,7 @@
 #scanScreen.scan-active #adminOpen{display:block!important;position:fixed;top:12px;right:12px;z-index:50;width:auto;margin:0!important;padding:12px 18px;background:#2563eb;color:#fff;box-shadow:0 4px 16px #0005}
 #scanScreen.scan-active .scanner{width:min(100%,1000px);flex:1;min-height:320px;display:flex;align-items:center}
 #scanScreen.scan-active #reader{width:100%}
-#scanScreen.scan-active #reader video{max-height:80vh;object-fit:cover}
+#scanScreen.scan-active #reader video{max-height:100dvh;object-fit:contain}
 /* Keep the confirmation layout within one viewport. */
 #confirmScreen{height:100vh;height:100dvh;min-height:0;padding:clamp(10px,2vw,24px);overflow:hidden}
 #confirmScreen .panel{width:100%;max-width:none;height:100%;min-height:0;display:flex;flex-direction:column;gap:10px;background:transparent;box-shadow:none}
@@ -244,6 +244,57 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
 @keyframes loginPop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(max-width:420px){#modal .login-card{padding:26px 20px 21px;border-radius:19px}#modal .login-title{font-size:22px}}
 
+
+/* Scanner: prioritaskan landscape, ukuran adaptif dan seluruh QR tetap terlihat */
+#scanScreen.scan-active{overflow:hidden!important}
+#scanScreen.scan-active .panel{height:100dvh;min-height:0!important;padding:clamp(8px,1.5vw,18px);gap:clamp(4px,1vh,10px);overflow:hidden;justify-content:center;align-items:center}
+#scanScreen.scan-active .title{font-size:clamp(18px,2.7vw,30px);line-height:1.05;margin:0 0 2px}
+#scanScreen.scan-active .sub{font-size:clamp(11px,1.4vw,15px);line-height:1.2;margin:0 0 3px}
+#scanScreen.scan-active .btnrow{display:none!important}
+#scanScreen.scan-active .footer-note{display:none!important}
+#scanScreen.scan-active #scanMsg{font-size:clamp(10px,1.2vw,13px);padding:4px 8px;margin:2px 0;max-width:90vw;line-height:1.2}
+#scanScreen.scan-active #adminOpen{display:block!important;position:fixed;top:8px;right:8px;z-index:50;width:auto;max-width:30vw;margin:0!important;padding:7px 11px;font-size:clamp(10px,1.2vw,13px);border-radius:7px;background:#2563eb;color:#fff;box-shadow:0 2px 8px #0005}
+#scanScreen.scan-active .scanner{width:min(88vw,calc(100dvh - 92px));height:calc(100dvh - 94px);max-height:calc(100dvh - 94px);min-height:0!important;flex:0 1 auto;margin:0 auto;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:10px}
+#scanScreen.scan-active #reader{width:100%!important;height:100%!important;max-width:100%;max-height:100%;margin:0 auto;overflow:hidden}
+#scanScreen.scan-active #reader video{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important}
+#scanScreen.scan-active #reader canvas{max-width:100%!important;height:auto!important}
+/* Fallback untuk browser yang tidak mendukung penguncian orientasi: tampilkan UI landscape */
+@media (orientation:portrait){
+ #scanScreen.scan-active{position:fixed!important;left:0!important;top:0!important;width:100dvh!important;height:100vw!important;min-height:0!important;transform-origin:top left!important;transform:rotate(90deg) translateY(-100%)!important;overflow:hidden!important}
+ #scanScreen.scan-active .panel{width:100%!important;height:100%!important;min-height:0!important;padding:8px 12px!important}
+ #scanScreen.scan-active .scanner{width:min(86vw,calc(100dvh - 82px));height:calc(100vw - 82px);max-height:calc(100vw - 82px)}
+}
+@media (orientation:landscape) and (max-height:520px){
+ #scanScreen.scan-active .panel{padding:5px 10px;gap:3px}
+ #scanScreen.scan-active .title{font-size:clamp(16px,3.3vh,24px)}
+ #scanScreen.scan-active .sub{font-size:clamp(10px,2.2vh,13px)}
+ #scanScreen.scan-active .scanner{height:calc(100dvh - 70px);max-height:calc(100dvh - 70px);width:min(84vw,calc(100dvh - 70px))}
+}
+
+#scanScreen .footer-note{display:none!important}
+</style>
+<style>
+
+/* Full-screen scanner: camera preview fills the screen; decoding uses the entire frame (no QR box). */
+#scanScreen.scan-active{position:fixed!important;inset:0!important;width:100vw!important;width:100dvw!important;height:100vh!important;height:100dvh!important;min-height:0!important;padding:0!important;margin:0!important;overflow:hidden!important;background:#000!important;z-index:999!important}
+#scanScreen.scan-active>.panel{position:static!important;display:block!important;width:100%!important;height:100%!important;min-height:0!important;max-width:none!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:hidden!important;pointer-events:none!important}
+#scanScreen.scan-active .title,#scanScreen.scan-active .sub,#scanScreen.scan-active .btnrow,#scanScreen.scan-active .footer-note{display:none!important}
+#scanScreen.scan-active .scanner,#scanScreen.scan-active #reader{position:fixed!important;inset:0!important;width:100vw!important;width:100dvw!important;height:100vh!important;height:100dvh!important;max-width:none!important;max-height:none!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;overflow:hidden!important;display:block!important;background:#000!important;z-index:0!important}
+#scanScreen.scan-active #reader video{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:contain!important;background:#000!important}
+#scanScreen.scan-active #reader canvas{max-width:none!important}
+#scanScreen.scan-active #scanMsg{position:fixed!important;left:50%!important;bottom:max(12px,env(safe-area-inset-bottom))!important;transform:translateX(-50%)!important;width:max-content!important;max-width:calc(100vw - 24px)!important;margin:0!important;padding:8px 12px!important;border-radius:10px!important;background:rgba(0,0,0,.62)!important;color:#fff!important;font-size:clamp(11px,1.5vw,15px)!important;line-height:1.25!important;text-align:center!important;z-index:1002!important;pointer-events:none!important}
+#scanScreen.scan-active #scanMsg.error{background:rgba(127,29,29,.92)!important}
+#scanScreen.scan-active #adminOpen{position:fixed!important;top:max(10px,env(safe-area-inset-top))!important;right:max(10px,env(safe-area-inset-right))!important;z-index:1003!important;pointer-events:auto!important;max-width:34vw!important;padding:9px 13px!important;font-size:clamp(11px,1.4vw,14px)!important;border-radius:9px!important;box-shadow:0 3px 14px #0008!important}
+@media (orientation:portrait){#scanScreen.scan-active #reader video{object-fit:contain!important}}
+
+</style>
+
+<style id="fullscreen-scanner-label-fix">
+/* Label petunjuk tetap terlihat sebagai overlay saat pemindai full screen. */
+#scanScreen.scan-active .title{display:block!important;position:fixed!important;top:max(12px,env(safe-area-inset-top))!important;left:50%!important;transform:translateX(-50%)!important;width:calc(100% - 24px)!important;max-width:720px!important;margin:0!important;padding:10px 14px!important;text-align:center!important;color:#fff!important;background:transparent!important;border:0!important;outline:0!important;box-shadow:none!important;border-radius:0!important;font-size:clamp(16px,2.4vw,25px)!important;line-height:1.2!important;z-index:1001!important;pointer-events:none!important}
+#scanScreen.scan-active .sub{display:block!important;position:fixed!important;top:calc(max(12px,env(safe-area-inset-top)) + 48px)!important;left:50%!important;transform:translateX(-50%)!important;width:calc(100% - 28px)!important;max-width:680px!important;margin:0!important;padding:7px 10px!important;text-align:center!important;color:#fff!important;background:rgba(0,0,0,.52)!important;border-radius:8px!important;font-size:clamp(11px,1.5vw,15px)!important;line-height:1.3!important;z-index:1001!important;pointer-events:none!important}
+#scanScreen.scan-active #adminOpen{position:fixed!important;top:auto!important;right:auto!important;bottom:max(12px,env(safe-area-inset-bottom))!important;left:50%!important;transform:translateX(-50%)!important;z-index:1003!important;width:auto!important;max-width:calc(100vw - 24px)!important;margin:0!important;padding:9px 16px!important;font-size:clamp(11px,1.4vw,14px)!important;white-space:nowrap!important;border-radius:9px!important;pointer-events:auto!important}
+@media (max-height:420px){#scanScreen.scan-active .title{font-size:clamp(14px,3.8vh,20px)!important;padding:5px 9px!important}#scanScreen.scan-active .sub{top:calc(max(8px,env(safe-area-inset-top)) + 34px)!important;font-size:clamp(10px,2.3vh,12px)!important;padding:4px 8px!important}}
 </style>
 </head>
 <body>
@@ -357,22 +408,64 @@ function renderCandidates(){const root=$('#candidateList');root.innerHTML=db.can
 function renderConfirm(){const root=$('#confirmCandidates');root.innerHTML=selected.map(id=>{const c=db.candidates.find(x=>x.id===id);return c?`<div class="candidate selected"><img src="${c.photo||''}" alt="Foto ${esc(c.name)}"><span class="name">${esc(c.name)}</span></div>`:''}).join('');msg('confirmMsg',selected.length>1?'Anda memilih lebih dari satu calon. Suara akan berstatus TIDAK SAH jika dilanjutkan.':'Periksa kembali pilihan Anda sebelum menekan Pilih.',selected.length>1?'error':'');}
 function stopScanner(){if(scanner){scanner.stop().catch(()=>{});scanner.clear().catch(()=>{});scanner=null}$('#scanScreen').classList.remove('scan-active');if(document.fullscreenElement)document.exitFullscreen().catch(()=>{})}
 async function startCamera({fullscreen=false}={}){
- $('#scanScreen').classList.add('scan-active');
- if(fullscreen){const fs=$('#scanScreen').requestFullscreen;if(fs)fs.call($('#scanScreen')).catch(()=>{});}
+ const screen=$('#scanScreen'), reader=$('#reader');
+ screen.classList.add('scan-active');
+ if(fullscreen && screen.requestFullscreen){try{await screen.requestFullscreen()}catch(e){console.warn('Mode layar penuh tidak tersedia:',e)}}
+ try{if(screen.orientation && typeof screen.orientation.lock==='function')await screen.orientation.lock('landscape')}catch(e){console.info('Penguncian landscape tidak didukung oleh browser/perangkat; gunakan tampilan landscape otomatis.',e)}
  msg('scanMsg','Mengaktifkan kamera… Jika diminta oleh browser, pilih Izinkan.');
- if(!window.Html5Qrcode){msg('scanMsg','Pemindai tidak dapat dimuat. Periksa koneksi internet atau gunakan kode manual.','error');return}
+ if(!window.isSecureContext){msg('scanMsg','Kamera memerlukan HTTPS atau localhost. Buka alamat aplikasi melalui HTTPS, lalu izinkan akses kamera.','error');return}
+ if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){msg('scanMsg','Browser ini tidak menyediakan akses kamera. Buka aplikasi melalui Chrome/Edge terbaru menggunakan HTTPS.','error');return}
+ if(!window.Html5Qrcode){msg('scanMsg','Pemindai QR belum berhasil dimuat. Periksa koneksi internet, lalu muat ulang halaman.','error');return}
  try{
-  if(scanner){try{await scanner.stop()}catch{} try{scanner.clear()}catch{} scanner=null;}
+  if(scanner){try{if(scanner.isScanning)await scanner.stop()}catch(e){console.warn('Stop scanner sebelumnya:',e)}try{scanner.clear()}catch(e){}scanner=null;}
+  if(reader)reader.innerHTML='';
   scanner=new Html5Qrcode('reader');
-  await scanner.start({facingMode:'environment'},{fps:10,qrbox:(width,height)=>{const size=Math.floor(Math.min(width,height)*.8);return {width:size,height:size}}},text=>processQR(text),()=>{});
-  msg('scanMsg','Kamera aktif. Untuk masuk ke Panel Admin, tekan tombol Admin.','ok');
+  const config={fps:20,disableFlip:false,videoConstraints:{facingMode:{ideal:'environment'},aspectRatio:{ideal:1.777}}};
+  try{
+   await scanner.start({facingMode:'environment'},config,text=>processQR(text),()=>{});
+  }catch(firstError){
+   console.warn('Kamera belakang tidak berhasil, mencoba daftar kamera:',firstError);
+   try{if(scanner){try{await scanner.clear()}catch(e){} } }catch(e){}
+   if(reader)reader.innerHTML='';
+   scanner=new Html5Qrcode('reader');
+   const cameras=await Html5Qrcode.getCameras();
+   if(!cameras || !cameras.length)throw firstError;
+   const rear=cameras.find(c=>/back|rear|environment|belakang|traseira|后置/i.test(c.label||''));
+   const chosen=rear||cameras[cameras.length-1];
+   await scanner.start(chosen.id,config,text=>processQR(text),()=>{});
+  }
+  msg('scanMsg','Kamera aktif. Arahkan QR Code ke area kamera dari arah mana saja.','ok');
+  refreshScannerLayout();
  }catch(e){
+  console.error('Gagal mengaktifkan kamera:',e);
+  try{if(scanner){try{if(scanner.isScanning)await scanner.stop()}catch(stopError){}try{scanner.clear()}catch(clearError){}}}catch(cleanError){}
   scanner=null;
-  const secure=window.isSecureContext;
-  msg('scanMsg',secure?'Kamera belum dapat diakses. Periksa izin kamera pada pengaturan situs/browser, pastikan kamera tidak dipakai aplikasi lain, lalu tekan Mulai Scan QR Code.':'Akses kamera memerlukan HTTPS atau localhost. Buka aplikasi melalui HTTPS, lalu izinkan kamera pada browser.','error');
+  if(reader)reader.innerHTML='';
+  const name=e && e.name ? e.name : '';
+  let message='Kamera belum dapat diakses. ';
+  if(name==='NotAllowedError' || name==='PermissionDeniedError') message+='Izin kamera ditolak. Klik ikon gembok/pengaturan di samping alamat situs, ubah Kamera menjadi Izinkan, lalu muat ulang halaman.';
+  else if(name==='NotFoundError' || name==='DevicesNotFoundError') message+='Tidak ditemukan kamera pada perangkat ini. Periksa sambungan kamera.';
+  else if(name==='NotReadableError' || name==='TrackStartError') message+='Kamera sedang digunakan aplikasi lain atau tidak dapat dibuka. Tutup aplikasi yang memakai kamera lalu coba lagi.';
+  else if(name==='OverconstrainedError' || name==='ConstraintNotSatisfiedError') message+='Kamera tidak mendukung pengaturan yang diminta. Coba kamera lain atau putar perangkat kembali.';
+  else if(name==='SecurityError') message+='Browser memblokir akses kamera. Gunakan HTTPS atau localhost dan izinkan kamera.';
+  else message+='Pastikan izin kamera diizinkan, kamera tidak dipakai aplikasi lain, lalu tekan Mulai Scan QR Code lagi.';
+  msg('scanMsg',message,'error');
  }
 }
 $('#startScan').onclick=()=>startCamera({fullscreen:true});
+let scannerLayoutTimer;
+function refreshScannerLayout(){
+ clearTimeout(scannerLayoutTimer);
+ scannerLayoutTimer=setTimeout(()=>{
+  const reader=$('#reader');
+  if(!reader)return;
+  const video=reader.querySelector('video');
+  if(video){video.style.width='100%';video.style.height='100%';video.style.objectFit='contain';}
+ },180);
+}
+window.addEventListener('orientationchange',refreshScannerLayout);
+window.addEventListener('resize',refreshScannerLayout);
+
 $('#manualOpen').onclick=()=>{const code=prompt('Masukkan kode QR dari surat undangan:');if(code!==null)processQR(code)};
 $('#toConfirm').onclick=()=>{if(!selected.length){msg('candidateMsg','Silakan pilih minimal satu calon.','error');return}renderConfirm();show('confirmScreen')};
 $('#redo').onclick=()=>{renderCandidates();show('candidateScreen')};
@@ -385,14 +478,35 @@ function renderReceipt(){const valid=currentVote.status==='SAH',c=valid?db.candi
  $('#receiptResult').innerHTML=`<p class="small"><b>${c?'Suara sah':'Suara tidak sah'}</b></p>${c?`<p class="small">Nama calon: <b>${esc(c.name)}</b></p>`:`<p class="small">Jumlah calon yang dipilih: ${currentVote.selected.length}</p>`}<p class="small">Waktu: ${esc(new Date(currentVote.time).toLocaleString('id-ID'))}</p><p class="small">ID transaksi: ${esc(currentVote.id)}</p>`;
  $('#receiptQR').innerHTML='';if(window.QRCode)new QRCode($('#receiptQR'),{text:JSON.stringify({id:currentVote.id,status:currentVote.status}),width:160,height:160,correctLevel:QRCode.CorrectLevel.M});}
 let printInProgress=false;
-function returnToScanAndRestart(){
+let returningToScan=false;
+async function returnToScanAndRestart(){
+ if(returningToScan)return;
+ returningToScan=true;
  printInProgress=false;
  activeVoter=null;selected=[];currentVote=null;
- stopScanner();
- msg('scanMsg','Menyiapkan kamera pemindai QR Code…');
+ // Tampilkan halaman awal lebih dahulu supaya tombol selalu merespons.
  show('scanScreen');
- // Beri browser waktu untuk menutup dialog cetak dan merender ulang area kamera.
- setTimeout(()=>startCamera({fullscreen:false}),700);
+ $('#scanScreen').classList.remove('scan-active');
+ msg('scanMsg','Menyiapkan kamera pemindai QR Code…');
+ // Pastikan kamera sebelumnya benar-benar berhenti sebelum memulai sesi baru.
+ const oldScanner=scanner;
+ scanner=null;
+ if(oldScanner){
+  try{if(oldScanner.isScanning)await oldScanner.stop()}catch(e){}
+  try{oldScanner.clear()}catch(e){}
+ }
+ const reader=$('#reader');
+ if(reader)reader.innerHTML='';
+ if(document.fullscreenElement){
+  try{await document.exitFullscreen()}catch(e){}
+ }
+ // Tunggu UI dan perangkat kamera siap, lalu nyalakan kembali pemindai.
+ await new Promise(resolve=>setTimeout(resolve,500));
+ try{
+  await startCamera({fullscreen:false});
+ }finally{
+  returningToScan=false;
+ }
 }
 function autoPrintReceipt(){
  if(printInProgress)return;
@@ -409,7 +523,8 @@ window.addEventListener('afterprint',()=>{
 });
 $('#printReceipt').onclick=()=>autoPrintReceipt();
 $('#receiptPrintButton').onclick=()=>{printInProgress=true;setTimeout(()=>window.print(),150)};
-$('#backToScan').onclick=$('#receiptBack').onclick=()=>returnToScanAndRestart();
+$('#backToScan').onclick=(e)=>{e.preventDefault();returnToScanAndRestart()};
+$('#receiptBack').onclick=(e)=>{e.preventDefault();returnToScanAndRestart()};
 function openAdmin(){
  const modal=$('#modal');
  modal.classList.remove('hidden');
@@ -446,7 +561,18 @@ function openAdmin(){
  };
  input.focus();
 }
-$('#adminOpen').onclick=openAdmin;
+$('#adminOpen').onclick=async()=>{
+ // Keluar dari mode fullscreen terlebih dahulu agar dialog login tampil di atas seluruh halaman.
+ const screen=$('#scanScreen');
+ if(scanner){
+  const oldScanner=scanner; scanner=null;
+  try{if(oldScanner.isScanning)await oldScanner.stop()}catch(e){console.warn('Kamera dihentikan sebelum login admin:',e)}
+  try{oldScanner.clear()}catch(e){}
+ }
+ if(screen)screen.classList.remove('scan-active');
+ if(document.fullscreenElement){try{await document.exitFullscreen()}catch(e){console.warn('Tidak dapat keluar dari fullscreen:',e)}}
+ openAdmin();
+};
 document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='a'){e.preventDefault();openAdmin();}});
 $('#adminLogout').onclick=()=>{show('scanScreen')};
 $$('.tabs button').forEach(b=>b.onclick=()=>{activeTab=b.dataset.tab;$$('.tabs button').forEach(x=>x.classList.toggle('active',x===b));renderAdmin()});
@@ -479,7 +605,8 @@ function download(name,content,type){const a=document.createElement('a');a.href=
 // Tautan langsung panel admin: tambahkan #admin pada URL. Panel tetap dilindungi kata sandi.
 if(location.hash==='#admin') openAdmin();
 // Coba aktifkan kamera otomatis saat halaman dibuka. Browser tetap dapat meminta izin.
-window.addEventListener('load',()=>{if(location.hash!=='#admin') startCamera({fullscreen:false});});
+window.addEventListener('load',()=>{if(location.hash!=='#admin'){try{if(screen.orientation&&typeof screen.orientation.lock==='function')screen.orientation.lock('landscape').catch(()=>{})}catch(e){} startCamera({fullscreen:true});}});
+document.addEventListener('pointerdown',()=>{const s=$('#scanScreen');if(!s||s.classList.contains('hidden')||!s.classList.contains('scan-active'))return;if(!document.fullscreenElement&&s.requestFullscreen)s.requestFullscreen().catch(()=>{});},{passive:true});
 window.addEventListener('beforeunload',stopScanner);
 </script>
 </body></html>

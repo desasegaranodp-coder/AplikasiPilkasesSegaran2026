@@ -369,19 +369,47 @@ function renderCandidates(){const root=$('#candidateList');root.innerHTML=db.can
 function renderConfirm(){const root=$('#confirmCandidates');root.innerHTML=selected.map(id=>{const c=db.candidates.find(x=>x.id===id);return c?`<div class="candidate selected"><img src="${c.photo||''}" alt="Foto ${esc(c.name)}"><span class="name">${esc(c.name)}</span></div>`:''}).join('');msg('confirmMsg',selected.length>1?'Anda memilih lebih dari satu calon. Suara akan berstatus TIDAK SAH jika dilanjutkan.':'Periksa kembali pilihan Anda sebelum menekan Pilih.',selected.length>1?'error':'');}
 function stopScanner(){if(scanner){scanner.stop().catch(()=>{});scanner.clear().catch(()=>{});scanner=null}$('#scanScreen').classList.remove('scan-active');if(document.fullscreenElement)document.exitFullscreen().catch(()=>{})}
 async function startCamera({fullscreen=false}={}){
- $('#scanScreen').classList.add('scan-active');
- if(fullscreen){const fs=$('#scanScreen').requestFullscreen;if(fs)fs.call($('#scanScreen')).catch(()=>{});}
+ const screen=$('#scanScreen'), reader=$('#reader');
+ screen.classList.add('scan-active');
+ if(fullscreen && screen.requestFullscreen){try{await screen.requestFullscreen()}catch(e){console.warn('Mode layar penuh tidak tersedia:',e)}}
  msg('scanMsg','Mengaktifkan kamera… Jika diminta oleh browser, pilih Izinkan.');
- if(!window.Html5Qrcode){msg('scanMsg','Pemindai tidak dapat dimuat. Periksa koneksi internet atau gunakan kode manual.','error');return}
+ if(!window.isSecureContext){msg('scanMsg','Kamera memerlukan HTTPS atau localhost. Buka alamat aplikasi melalui HTTPS, lalu izinkan akses kamera.','error');return}
+ if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){msg('scanMsg','Browser ini tidak menyediakan akses kamera. Buka aplikasi melalui Chrome/Edge terbaru menggunakan HTTPS.','error');return}
+ if(!window.Html5Qrcode){msg('scanMsg','Pemindai QR belum berhasil dimuat. Periksa koneksi internet, lalu muat ulang halaman.','error');return}
  try{
-  if(scanner){try{await scanner.stop()}catch{} try{scanner.clear()}catch{} scanner=null;}
+  if(scanner){try{if(scanner.isScanning)await scanner.stop()}catch(e){console.warn('Stop scanner sebelumnya:',e)}try{scanner.clear()}catch(e){}scanner=null;}
+  if(reader)reader.innerHTML='';
   scanner=new Html5Qrcode('reader');
-  await scanner.start({facingMode:{ideal:'environment'}},{fps:15,qrbox:(width,height)=>{const side=Math.floor(Math.min(width,height)*0.72);const size=Math.max(160,Math.min(side,360));return {width:Math.min(size,width),height:Math.min(size,height)}}},text=>processQR(text),()=>{});
-  msg('scanMsg','Kamera aktif. Untuk masuk ke Panel Admin, tekan tombol Admin.','ok');
+  const config={fps:12,qrbox:(width,height)=>{const side=Math.floor(Math.min(width,height)*0.72);const size=Math.max(140,Math.min(side,360));return {width:Math.min(size,width),height:Math.min(size,height)}}};
+  try{
+   await scanner.start({facingMode:'environment'},config,text=>processQR(text),()=>{});
+  }catch(firstError){
+   console.warn('Kamera belakang tidak berhasil, mencoba daftar kamera:',firstError);
+   try{if(scanner){try{await scanner.clear()}catch(e){} } }catch(e){}
+   if(reader)reader.innerHTML='';
+   scanner=new Html5Qrcode('reader');
+   const cameras=await Html5Qrcode.getCameras();
+   if(!cameras || !cameras.length)throw firstError;
+   const rear=cameras.find(c=>/back|rear|environment|belakang|traseira|后置/i.test(c.label||''));
+   const chosen=rear||cameras[cameras.length-1];
+   await scanner.start(chosen.id,config,text=>processQR(text),()=>{});
+  }
+  msg('scanMsg','Kamera aktif. Arahkan QR ke kotak pemindai. Untuk masuk ke Panel Admin, tekan tombol Admin.','ok');
+  refreshScannerLayout();
  }catch(e){
+  console.error('Gagal mengaktifkan kamera:',e);
+  try{if(scanner){try{if(scanner.isScanning)await scanner.stop()}catch(stopError){}try{scanner.clear()}catch(clearError){}}}catch(cleanError){}
   scanner=null;
-  const secure=window.isSecureContext;
-  msg('scanMsg',secure?'Kamera belum dapat diakses. Periksa izin kamera pada pengaturan situs/browser, pastikan kamera tidak dipakai aplikasi lain, lalu tekan Mulai Scan QR Code.':'Akses kamera memerlukan HTTPS atau localhost. Buka aplikasi melalui HTTPS, lalu izinkan kamera pada browser.','error');
+  if(reader)reader.innerHTML='';
+  const name=e && e.name ? e.name : '';
+  let message='Kamera belum dapat diakses. ';
+  if(name==='NotAllowedError' || name==='PermissionDeniedError') message+='Izin kamera ditolak. Klik ikon gembok/pengaturan di samping alamat situs, ubah Kamera menjadi Izinkan, lalu muat ulang halaman.';
+  else if(name==='NotFoundError' || name==='DevicesNotFoundError') message+='Tidak ditemukan kamera pada perangkat ini. Periksa sambungan kamera.';
+  else if(name==='NotReadableError' || name==='TrackStartError') message+='Kamera sedang digunakan aplikasi lain atau tidak dapat dibuka. Tutup aplikasi yang memakai kamera lalu coba lagi.';
+  else if(name==='OverconstrainedError' || name==='ConstraintNotSatisfiedError') message+='Kamera tidak mendukung pengaturan yang diminta. Coba kamera lain atau putar perangkat kembali.';
+  else if(name==='SecurityError') message+='Browser memblokir akses kamera. Gunakan HTTPS atau localhost dan izinkan kamera.';
+  else message+='Pastikan izin kamera diizinkan, kamera tidak dipakai aplikasi lain, lalu tekan Mulai Scan QR Code lagi.';
+  msg('scanMsg',message,'error');
  }
 }
 $('#startScan').onclick=()=>startCamera({fullscreen:true});
